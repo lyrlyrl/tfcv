@@ -8,9 +8,9 @@ import pprint
 
 from absl import logging
 
-from sdk.core.callback import CallbackList, Callback
+from tfcv.core.callback import CallbackList, Callback
 
-from sdk.core.trainer import *
+from tfcv.core.trainer import *
 
 __all__ = ['Executor']
 

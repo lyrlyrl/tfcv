@@ -31,30 +31,6 @@ class Task(object, metaclass=abc.ABCMeta):
     @property
     def task_config(self):
         return self._task_config
-    
-    @property
-    def train_num_examples(self):
-        return self._train_num_examples
-
-    @train_num_examples.setter
-    def train_num_examples(self, value):
-        self._train_num_examples = value
-    
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @dtype.setter
-    def dtype(self, value):
-        self._dtype = value
-    
-    @property
-    def eval_num_examples(self):
-        return self._eval_num_examples
-    
-    @eval_num_examples.setter
-    def eval_num_examples(self, value):
-        self._eval_num_examples = value
 
     def initialize(self, model: tf.keras.Model):
         pass

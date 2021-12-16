@@ -1,5 +1,5 @@
 import tensorflow as tf
-from sdk.core.trainer import Trainer
+from tfcv.core.trainer import Trainer
 
 __all__ = ['CallbackList', 'Callback']
 
