@@ -1,226 +1,123 @@
 import logging
 import os
-
+import numpy as np
 import tensorflow as tf
-import dllogger
+import yaml
 
-import tfcv
+from tfcv.config import config as cfg
 
-from tfcv.detection.modeling.faster_rcnn import MaskRCNN, FasterRCNN
+from tfcv.detection.dataset.dataset import Dataset
+from tfcv.detection.modeling.faster_rcnn import FasterRCNN
 from tfcv.detection.runtime.evaluation import evaluate
 from tfcv.detection.runtime.learning_rate import PiecewiseConstantWithWarmupSchedule
-from tfcv.detection.runtime.callbacks import DLLoggerMetricsCallback, DLLoggerPerfCallback, PretrainedWeightsLoadingCallback
-from tfcv.detection.runtime.weights_mapping import WEIGHTS_MAPPING
 from tfcv.detection.trainers.faster_rcnn import FasterRCNNTrainer
-def ctl_training(dataset, params):
-    setup(params)
 
-    strategy = tf.distribute.MirroredStrategy()
-    params.replicas = strategy.num_replicas_in_sync
-    params.global_train_batch_size = params.train_batch_size * params.replicas
-    logging.info(f'Distributed Strategy is activated for {params.replicas} device(s)')
-
-    train_data = dataset.train_fn(batch_size=params.global_train_batch_size)
-
-    with strategy.scope():
-
-        learning_rate = PiecewiseConstantWithWarmupSchedule(
-            init_value=params.init_learning_rate,
-            # scale boundaries from epochs to steps
-            boundaries=[
-                int(b * dataset.train_size / params.global_train_batch_size)
-                for b in params.learning_rate_boundaries
-            ],
-            values=params.learning_rate_values,
-            # scale only by local BS as distributed strategy later scales it by number of replicas
-            scale=params.train_batch_size
-        )
-
-        optimizer = tf.keras.optimizers.SGD(
-            learning_rate=learning_rate,
-            momentum=params.momentum
-        )
-
-        mask_rcnn_model = create_model(params)
-
-        trainer = FasterRCNNTrainer(
-            params,
-            mask_rcnn_model,
-            optimizer,
-            [
-                tf.keras.metrics.Mean(name='rpn_score_loss'),
-                tf.keras.metrics.Mean(name='rpn_box_loss'),
-                tf.keras.metrics.Mean(name='fast_rcnn_class_loss'),
-                tf.keras.metrics.Mean(name='fast_rcnn_box_loss'),
-                tf.keras.metrics.Mean(name='mask_rcnn_loss'),
-                tf.keras.metrics.Mean(name='l2_regularization_loss')
-            ])
-
-        total_steps = int(params.epochs * dataset.train_size / params.global_train_batch_size)
-
-        dist_dataset = strategy.experimental_distribute_dataset(train_data)
-
-        trainer.compile()
-
-        trainer.train(total_steps, iter(dist_dataset))
-
-def run_training(dataset, params):
-    setup(params)
-
-    strategy = tf.distribute.MirroredStrategy()
-    params.replicas = strategy.num_replicas_in_sync
-    params.global_train_batch_size = params.train_batch_size * params.replicas
-    logging.info(f'Distributed Strategy is activated for {params.replicas} device(s)')
-
-    with strategy.scope():
-
-        learning_rate = PiecewiseConstantWithWarmupSchedule(
-            init_value=params.init_learning_rate,
-            # scale boundaries from epochs to steps
-            boundaries=[
-                int(b * dataset.train_size / params.global_train_batch_size)
-                for b in params.learning_rate_boundaries
-            ],
-            values=params.learning_rate_values,
-            # scale only by local BS as distributed strategy later scales it by number of replicas
-            scale=params.train_batch_size
-        )
-
-        optimizer = tf.keras.optimizers.SGD(
-            learning_rate=learning_rate,
-            momentum=params.momentum
-        )
-
-        mask_rcnn_model = create_model(params)
-
-        mask_rcnn_model.compile(
-            optimizer=optimizer
-        )
-
-    # distributed strategy splits data between instances so we need global BS
-    train_data = dataset.train_fn(batch_size=params.global_train_batch_size)
-
-    if params.eagerly:
-        mask_rcnn_model.run_eagerly = True
-        logging.warning('Model is running in eager mode which might reduce performance')
-    mask_rcnn_model.fit(
-        x=train_data,
-        epochs=params.epochs,
-        steps_per_epoch=params.steps_per_epoch or (dataset.train_size // params.global_train_batch_size),
-        verbose=0,
-        callbacks=list(create_callbacks(params)),
-    )
-
-
-def run_evaluation(dataset, params):    # don't load backbone weights to do not override the checkpoint
-    if params.backbone_checkpoint:
-        params.backbone_checkpoint = None
-        logging.info("Pretrained backbone weights will not be loaded")
-    setup(params)
-
-    mask_rcnn_model = create_model(params)
-
-    if params.eagerly:
-        mask_rcnn_model.run_eagerly = True
-        logging.warning('Model is running in eager mode which might reduce performance')
-
-    predictions = mask_rcnn_model.predict(
-        x=dataset.eval_fn(params.eval_batch_size),
-        callbacks=list(create_callbacks(params))
-    )
-
-    eval_results = evaluate(
-        predictions=predictions,
-        eval_file=params.eval_file,
-        include_mask=params.include_mask
-    )
-
-    dllogger.log(
-        step=tuple(),
-        data={k: float(v) for k, v in eval_results.items()}
-    )
-
-
-def run_inference(dataset, params):
-    setup(params)
-
-    mask_rcnn_model = create_model(params)
-
-    if params.eagerly:
-        mask_rcnn_model.run_eagerly = True
-        logging.warning('Model is running in eager mode which might reduce performance')
-
-    mask_rcnn_model.predict(
-        x=dataset.eval_fn(params.eval_batch_size),
-        callbacks=list(create_callbacks(params))
-    )
-
-
-def setup(params):
-
-    # enforces that AMP is enabled using --amp and not env var
-    # mainly for NGC where it is enabled by default
-    os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '0'
-
-    if params.xla:
-        tf.config.optimizer.set_jit(True)
+def setup():
+    if cfg.xla:
+        os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit'
         logging.info('XLA is activated')
 
-    if params.amp:
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
+    if cfg.amp:
         policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16", loss_scale="dynamic")
         tf.keras.mixed_precision.experimental.set_policy(policy)
         logging.info('AMP is activated')
 
+def ctl_train():
+    setup()
+    dataset = Dataset()
+    strategy = tf.distribute.MirroredStrategy()
+    cfg.replicas = strategy.num_replicas_in_sync
+    cfg.global_train_batch_size = cfg.train_batch_size * cfg.replicas
+    cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
 
-def create_model(params):
-    model = FasterRCNN(
-        params=params,
-        trainable='train' in params.mode
-    )
+    train_data = dataset.train_fn(batch_size=cfg.global_train_batch_size)
+    eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size)
 
-    checkpoint_path = tf.train.latest_checkpoint(params.model_dir)
+    with strategy.scope():
 
-    # if there is no checkpoint we are done
-    if checkpoint_path is None:
-        logging.info(f"No checkpoint was found in: {params.model_dir}")
-        return model
+        learning_rate = PiecewiseConstantWithWarmupSchedule(
+            init_value=cfg.optimization.init_learning_rate,
+            # scale boundaries from epochs to steps
+            boundaries=[
+                int(b * dataset.train_size / cfg.global_train_batch_size)
+                for b in cfg.optimization.learning_rate_boundaries
+            ],
+            values=cfg.optimization.learning_rate_values,
+            # scale only by local BS as distributed strategy later scales it by number of replicas
+            scale=cfg.train_batch_size
+        )
 
-    model.load_weights(checkpoint_path).expect_partial()
-    logging.info(f"Loaded weights from checkpoint: {checkpoint_path}")
+        optimizer = tf.keras.optimizers.SGD(
+            learning_rate=learning_rate,
+            momentum=cfg.optimization.momentum
+        )
+
+        model = create_model()
+        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
+        initialize(checkpoint)
+
+        metrics = create_metrics()
+        trainer = create_trainer(model, optimizer, metrics)
+
+        dist_train_dataset = strategy.experimental_distribute_dataset(train_data)
+        dist_eval_dataset = strategy.experimental_distribute_dataset(eval_data)
+        trainer.compile()
+        train_iter = iter(dist_train_dataset)
+
+        total_steps = int(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
+        steps_per_epoch = int(total_steps * cfg.solver.evaluate_interval / cfg.solver.epochs)
+        current_step = optimizer.iterations.numpy()
+
+        for i in np.arange(0, cfg.solver.epochs, cfg.solver.evaluate_interval):
+            i = np.round(i, 3)
+            if i * steps_per_epoch < current_step:
+                continue
+            step_to_train = min(steps_per_epoch, total_steps - i * steps_per_epoch)
+            trainer.train(step_to_train, train_iter)
+            eval_results = trainer.evaluate(dist_eval_dataset)
+            ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint_subdir, 'ckpt')
+            checkpoint.save(ckpt_path)
+            with open(f'res{i+1}.yaml', 'w') as fp:
+                yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
+
+
+
+def create_model():
+    if cfg.meta_arch == 'faster_rcnn':
+        model = FasterRCNN()
 
     return model
 
+def initialize(checkpoint):
+    ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint_subdir)
+    checkpoint_path = tf.train.latest_checkpoint(ckpt_path)
+    if checkpoint_path is None:
+        logging.info(f"No checkpoint was found in: {ckpt_path}")
+        return
+    checkpoint.restore(checkpoint_path).assert_consumed()
+    logging.info(f"Loaded weights from checkpoint: {checkpoint_path}")
 
-def create_callbacks(params):
-    yield DLLoggerMetricsCallback(
-        dllogger=dllogger,
-        log_every=params.log_every
-    )
+def create_metrics():
 
-    yield DLLoggerPerfCallback(
-        dllogger=dllogger,
-        batch_sizes={
-            'train': params.train_batch_size * getattr(params, 'replicas', 1),
-            'test': params.eval_batch_size * getattr(params, 'replicas', 1),
-            'predict': params.eval_batch_size * getattr(params, 'replicas', 1)
-        },
-        warmup_steps=params.log_warmup_steps,
-        log_every=params.log_every
-    )
+    if cfg.meta_arch == 'faster_rcnn':
+        metrics = [
+                tf.keras.metrics.Mean(name='rpn_score_loss'),
+                tf.keras.metrics.Mean(name='rpn_box_loss'),
+                tf.keras.metrics.Mean(name='fast_rcnn_class_loss'),
+                tf.keras.metrics.Mean(name='fast_rcnn_box_loss'),
+                tf.keras.metrics.Mean(name='l2_regularization_loss')
+            ]
+            
+        if cfg.include_mask:
+            metrics.append(tf.keras.metrics.Mean(name='mask_rcnn_loss'))
 
-    # if params.backbone_checkpoint:
-    #     yield PretrainedWeightsLoadingCallback(
-    #         checkpoint_path=params.backbone_checkpoint,
-    #         mapping=lambda name: WEIGHTS_MAPPING.get(name.replace(':0', ''), name)
-    #     )
+    return metrics
 
-    yield tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(params.model_dir, params.checkpoint_name_format),
-        verbose=1
-    )
-
-    if params.log_tensorboard:
-        yield tf.keras.callbacks.TensorBoard(
-            log_dir=params.log_tensorboard,
-            update_freq='batch'
-        )
+def create_trainer(model, optimizer, metrics):
+    if cfg.meta_arch == 'faster_rcnn':
+        return FasterRCNNTrainer(cfg, model, optimizer, metrics)

@@ -1,13 +1,18 @@
 import tensorflow as tf
-
+import os
 import tfcv
 
 from tfcv.detection.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.detection.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.detection.losses.rpn_loss import RPNLoss
+from tfcv.detection.evaluate.metric import COCOEvaluationMetric, process_predictions
 
 class FasterRCNNTrainer(tfcv.Trainer):
-
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        eval_file = os.path.join(self._params.data.dir, self._params.data.val_json)
+        eval_file = os.path.expanduser(eval_file)
+        self.coco_metric = COCOEvaluationMetric(eval_file, self._params.include_mask)
     def train_step(self, inputs):
         with tf.GradientTape() as tape:
             model_outputs = self._model(
@@ -18,14 +23,14 @@ class FasterRCNNTrainer(tfcv.Trainer):
                 cropped_gt_masks=inputs['cropped_gt_masks'] if self._params.include_mask else None,
                 training=True)
             # model_outputs = self._model(1, training=True)
-            model_outputs = tf.nest.map_structure(
-                lambda x: tf.cast(x, tf.float32), model_outputs)
+            # model_outputs = tf.nest.map_structure(
+            #     lambda x: tf.cast(x, tf.float32), model_outputs)
             losses = self._build_loss(model_outputs, inputs)
             losses['l2_regularization_loss'] = tf.add_n([
                 tf.nn.l2_loss(tf.cast(v, dtype=tf.float32))
                 for v in self._model.trainable_variables
                 if not any([pattern in v.name for pattern in ["batch_normalization", "bias", "beta"]])
-            ]) * self._params.l2_weight_decay
+            ]) * self._params.loss.l2_weight_decay
             raw_loss = tf.math.reduce_sum(list(losses.values()))
             if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
                 loss = self._optimizer.get_scaled_loss(raw_loss)
@@ -40,24 +45,52 @@ class FasterRCNNTrainer(tfcv.Trainer):
         for metric in self._metrics:
             metric.update_state(losses[metric.name])
     
+    def inference_step(self, inputs):
+        detections = self._model(
+            images=inputs['images'],
+            image_info=inputs['image_info'],
+            training=False)
+        detections['source_ids'] = inputs['source_ids']
+        detections['image_info'] = inputs['image_info']
+        return detections
+
     def _build_loss(self, model_outputs, inputs):
-        mask_rcnn_loss = MaskRCNNLoss()(model_outputs, inputs)
-        mask_rcnn_loss *= self._params.mrcnn_weight_loss_mask
+        if self._params.include_mask:
+            mask_rcnn_loss = MaskRCNNLoss()(model_outputs, inputs)
+            mask_rcnn_loss *= self._params.loss.mask_weight
 
         fast_rcnn_class_loss, fast_rcnn_box_loss = FastRCNNLoss(self._params.num_classes)(model_outputs, inputs)
-        fast_rcnn_box_loss *= self._params.fast_rcnn_box_loss_weight
+        fast_rcnn_box_loss *= self._params.loss.fast_rcnn_box_weight
 
         rpn_score_loss, rpn_box_loss = RPNLoss(
             batch_size=self._params.train_batch_size,
-            rpn_batch_size_per_im=self._params.rpn_batch_size_per_im,
+            rpn_batch_size_per_im=self._params.rpn.batch_size_per_im,
             min_level=self._params.min_level,
             max_level=self._params.max_level)(model_outputs, inputs)
-        rpn_box_loss *= self._params.rpn_box_loss_weight
+        rpn_box_loss *= self._params.loss.rpn_box_weight
 
-        return {
+        losses = {
             'fast_rcnn_class_loss': fast_rcnn_class_loss,
             'fast_rcnn_box_loss': fast_rcnn_box_loss,
-            'mask_rcnn_loss': mask_rcnn_loss,
             'rpn_score_loss': rpn_score_loss,
             'rpn_box_loss': rpn_box_loss
         }
+        if self._params.include_mask:
+            losses['mask_rcnn_loss'] = mask_rcnn_loss
+        return losses
+    
+    def evaluate(self, dataset):
+        results = []
+        for dp in dataset:
+            results.append(self._inference_op(dp))
+        def _merge(*args):
+            return tf.concat(args, 0).numpy()
+        results = tf.nest.map_structure(_merge, *results)
+        for k, v in results.items():
+            print(k, v.shape)
+        predictions = process_predictions(results)
+        metric = self.coco_metric.predict_metric_fn(predictions)
+        for k, v in metric.items():
+            metric[k] = v.tolist()
+        return metric
+

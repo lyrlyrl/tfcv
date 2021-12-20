@@ -1,0 +1,10 @@
+# hyper
+xla: true
+amp: false
+checkpoint_subdir: 'ckpt'
+tflog_subdir: 'tflogs'
+use_synthetic_data: false
+seed: null
+solver:
+  steps_per_loop: 200
+  evaluate_interval: 1.0

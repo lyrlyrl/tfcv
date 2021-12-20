@@ -1,0 +1,7 @@
+_base: '../Detection/faster_rcnn_r50_fpn_1x.yaml'
+include_mask: true
+mrcnn:
+  resolution: 28
+  gt_mask_size: 112
+loss:
+  mask_weight: 1.0

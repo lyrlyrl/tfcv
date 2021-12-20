@@ -121,7 +121,7 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
                     image,
                     boxes=None,
                     instance_masks=None,
-                    image_size=params.image_size,
+                    image_size=params.data.image_size,
                     max_level=params.max_level,
                     augment_input_data=False,
                     seed=seed
@@ -137,8 +137,8 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
 
                 boxes, classes, indices, instance_masks = process_boxes_classes_indices_for_training(
                     data,
-                    skip_crowd_during_training=params.skip_crowd_during_training,
-                    use_category=params.use_category,
+                    skip_crowd_during_training=params.data.skip_crowd_during_training,
+                    use_category=params.data.use_category,
                     use_instance_mask=use_instance_mask
                 )
 
@@ -146,9 +146,9 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
                     image,
                     boxes=boxes,
                     instance_masks=instance_masks,
-                    image_size=params.image_size,
+                    image_size=params.data.image_size,
                     max_level=params.max_level,
-                    augment_input_data=params.augment_input_data,
+                    augment_input_data=params.data.augment_input,
                     seed=seed
                 )
 
@@ -163,7 +163,7 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
                     features['cropped_gt_masks'] = process_gt_masks_for_training(
                         instance_masks,
                         boxes,
-                        gt_mask_size=params.gt_mask_size,
+                        gt_mask_size=params.mrcnn.gt_mask_size,
                         padded_image_size=padded_image_size,
                         max_num_instances=MAX_NUM_INSTANCES
                     )
@@ -392,19 +392,19 @@ def process_targets_for_training(padded_image_size, boxes, classes, params):
     input_anchors = anchors.Anchors(
         params.min_level,
         params.max_level,
-        params.num_scales,
-        params.aspect_ratios,
-        params.anchor_scale,
+        params.anchor.num_scales,
+        params.anchor.aspect_ratios,
+        params.anchor.scale,
         padded_image_size
     )
 
     anchor_labeler = anchors.AnchorLabeler(
         input_anchors,
         params.num_classes,
-        params.rpn_positive_overlap,
-        params.rpn_negative_overlap,
-        params.rpn_batch_size_per_im,
-        params.rpn_fg_fraction
+        params.rpn.positive_overlap,
+        params.rpn.negative_overlap,
+        params.rpn.batch_size_per_im,
+        params.rpn.fg_fraction
     )
 
     return anchor_labeler.label_anchors(boxes, classes), input_anchors

@@ -27,22 +27,21 @@ import os
 
 import tensorflow as tf
 
+from tfcv.config import config as cfg
 from tfcv.detection.dataset.dataset_parser import dataset_parser
 
 TRAIN_SPLIT_PATTERN = 'train*.tfrecord'
 EVAL_SPLIT_PATTERN = 'val*.tfrecord'
-TRAIN_SPLIT_SAMPLES = 118287
 
 
 class Dataset:
     """ Load and preprocess the coco dataset. """
 
-    def __init__(self, params):
+    def __init__(self):
         """ Configures dataset. """
-        self._params = params
-
-        self._train_files = glob.glob(os.path.join(self._params.data_dir, 'tfrecords', TRAIN_SPLIT_PATTERN))
-        self._eval_files = glob.glob(os.path.join(self._params.data_dir, 'tfrecords', EVAL_SPLIT_PATTERN))
+        data_dir = os.path.expanduser(os.path.join(cfg.data.dir, 'tfrecords'))
+        self._train_files = glob.glob(os.path.join(data_dir, TRAIN_SPLIT_PATTERN))
+        self._eval_files = glob.glob(os.path.join(data_dir, EVAL_SPLIT_PATTERN))
 
         self._logger = logging.getLogger('dataset')
 
@@ -51,23 +50,23 @@ class Dataset:
         data = tf.data.TFRecordDataset(self._train_files)
 
         data = data.cache()
-        data = data.shuffle(buffer_size=4096, reshuffle_each_iteration=True, seed=self._params.seed)
+        data = data.shuffle(buffer_size=4096, reshuffle_each_iteration=True, seed=cfg.seed)
         data = data.repeat()
 
         data = data.map(
             lambda x: dataset_parser(
                 value=x,
                 mode='train',
-                params=self._params,
-                use_instance_mask=self._params.include_mask,
-                seed=self._params.seed
+                params=cfg,
+                use_instance_mask=cfg.include_mask,
+                seed=cfg.seed
             ),
             num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
 
         data = data.batch(batch_size=batch_size, drop_remainder=True)
 
-        if self._params.use_synthetic_data:
+        if cfg.use_synthetic_data:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
 
@@ -80,9 +79,9 @@ class Dataset:
         """ Input function for validation. """
         data = tf.data.TFRecordDataset(self._eval_files)
 
-        if self._params.eval_samples:
-            self._logger.info(f'Amount of samples limited to {self._params.eval_samples}')
-            data = data.take(self._params.eval_samples)
+        if cfg.data.val_split_samples > 0:
+            self._logger.info(f'Amount of samples limited to {cfg.data.val_split_samples}')
+            data = data.take(cfg.data.val_split_samples)
 
         data = data.cache()
 
@@ -91,32 +90,32 @@ class Dataset:
                 value=x,
                 # dataset parser expects mode to be PREDICT even for evaluation
                 mode='eval',
-                params=self._params,
-                use_instance_mask=self._params.include_mask,
-                seed=self._params.seed
+                params=cfg,
+                use_instance_mask=cfg.include_mask,
+                seed=cfg.seed
             ),
             num_parallel_calls=16
         )
 
         data = data.batch(batch_size=batch_size, drop_remainder=True)
 
-        if self._params.use_synthetic_data:
+        if cfg.use_synthetic_data:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
             data = data.take(5000 // batch_size)
 
-        data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         # FIXME: This is a walkaround for a bug and should be removed as soon as the fix is merged
         # http://nvbugs/2967052 [V100][JoC][MaskRCNN][TF1] performance regression with 1 GPU
-        data = data.apply(tf.data.experimental.prefetch_to_device('/gpu:0', buffer_size=1))
+        # data = data.apply(tf.data.experimental.prefetch_to_device('/gpu:0', buffer_size=1))
 
         return data
 
     @property
     def train_size(self):
         """ Size of the train dataset. """
-        return TRAIN_SPLIT_SAMPLES
+        return cfg.data.train_split_samples
 
     @property
     def _data_options(self):

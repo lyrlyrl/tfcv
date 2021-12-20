@@ -53,7 +53,7 @@ def get_tqdm_kwargs(**kwargs):
 
     try:
         # Use this env var to override the refresh interval setting
-        interval = float(os.environ['MLCO_PROGRESS_REFRESH'])
+        interval = float(os.environ['TFCV_PROGRESS_REFRESH'])
     except KeyError:
         interval = _pick_tqdm_interval(kwargs.get('file', sys.stderr))
 

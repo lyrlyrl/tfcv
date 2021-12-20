@@ -1,0 +1,74 @@
+_base: '_base.yaml'
+# model
+meta_arch: 'faster_rcnn'
+include_mask: false
+max_level: 6
+min_level: 2
+solver:
+  epochs: 12
+  best_eval_metric: 'mAP'
+data:
+  augment_input: true
+  image_size: !!python/tuple
+  - 832
+  - 1344
+  skip_crowd_during_training: true
+  use_category: true
+optimization:
+  learning_rate_boundaries:
+  - 0.3
+  - 8.0
+  - 10.0
+  learning_rate_values:
+  - 1.0e-2
+  - 1.0e-3
+  - 1.0e-4
+  init_learning_rate: 0.0
+  momentum: 0.9
+anchor:
+  num_scales: 1
+  scale: 8.0
+  aspect_ratios:
+  - !!python/tuple
+    - 1.0
+    - 1.0
+  - !!python/tuple
+    - 1.4
+    - 0.7
+  - !!python/tuple
+    - 0.7
+    - 1.4
+loss:
+  rpn_box_weight: 1.0
+  fast_rcnn_box_weight: 1.0
+  l2_weight_decay: 1.0e-4
+rpn:
+  batch_size_per_im: 256
+  fg_fraction: 0.5
+  min_size: 0.0
+  negative_overlap: 0.3
+  positive_overlap: 0.7
+  test:
+    nms_thresh: 0.7
+    post_nms_topn: 1000
+    pre_nms_topn: 1000
+  train:
+    nms_threshold: 0.7
+    post_nms_topn: 1000
+    pre_nms_topn: 2000
+proposal:
+  batch_size_per_im: 512
+  bg_thresh_hi: 0.5
+  bg_thresh_lo: 0.0
+  fg_fraction: 0.25
+  fg_thresh: 0.5
+frcnn:
+  mlp_head_dim: 1024
+  bbox_reg_weights: !!python/tuple
+  - 10.0
+  - 10.0
+  - 5.0
+  - 5.0
+  test:
+    detections_per_image: 100
+    nms: 0.5

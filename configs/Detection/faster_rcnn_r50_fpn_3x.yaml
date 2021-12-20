@@ -1,0 +1,8 @@
+_base: 'faster_rcnn_r50_fpn_1x.yaml'
+solver:
+  epochs: 36
+optimization:
+  learning_rate_boundaries:
+  - 0.3
+  - 28.0
+  - 34.0

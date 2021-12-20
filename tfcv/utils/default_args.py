@@ -2,11 +2,42 @@ import argparse
 
 PARSER = argparse.ArgumentParser(
     description='custom implementation of cv models for TensorFlow 2.x',
-    add_help=False)
+    add_help=True)
 
 # store hyperparameters
+RUNTIME_GROUP = PARSER.add_argument_group('Runtime')
 HYPER_GROUP = PARSER.add_argument_group('Hyperparameters')
-SOLVER_GROUP = PARSER.add_argument_group('Solver')
+
+RUNTIME_GROUP.add_argument(
+    'mode',
+    type=str,
+    metavar='MODE',
+    choices=['train', 'eval'],
+    help='run mode',
+)
+
+RUNTIME_GROUP.add_argument(
+    '--config_file',
+    type=str,
+    default=None,
+    help='config file',
+    required=True
+)
+
+RUNTIME_GROUP.add_argument(
+    '--model_dir',
+    type=str,
+    default=None,
+    help='workspace dir',
+    required=True
+)
+
+RUNTIME_GROUP.add_argument(
+    '--task',
+    type=str,
+    choices=['detection', 'classification'],
+    required=True
+)
 
 HYPER_GROUP.add_argument(
     '--train_batch_size',
@@ -44,22 +75,28 @@ HYPER_GROUP.add_argument(
     help='Enable automatic mixed precision'
 )
 
+HYPER_GROUP.add_argument(
+    '--strict_config',
+    action='store_true',
+    help='whether to use config hyperparameter'
+)
+
 # about train
-SOLVER_GROUP.add_argument(
+HYPER_GROUP.add_argument(
     '--epochs',
     type=int,
     default=12,
     help='Number of training epochs'
 )
 
-SOLVER_GROUP.add_argument(
+HYPER_GROUP.add_argument(
     '--steps_per_loop',
     type=int,
     default=100,
     help='Number of steps per train loop'
 )
 
-SOLVER_GROUP.add_argument(
+HYPER_GROUP.add_argument(
     '--eval_samples',
     type=int,
     default=None,

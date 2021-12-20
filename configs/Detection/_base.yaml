@@ -1,0 +1,10 @@
+_base: '../_base.yaml'
+train_batch_size: 4
+eval_batch_size: 4
+data:
+  dir: '~/data/coco'
+  train_split_samples: 118287
+  val_split_samples: -1
+  val_json: 'annotations/instances_val2017.json'
+# model
+num_classes: 91
