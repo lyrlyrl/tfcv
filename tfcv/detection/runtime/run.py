@@ -78,7 +78,7 @@ def ctl_train():
             if i * steps_per_epoch < current_step:
                 continue
             step_to_train = min(steps_per_epoch, total_steps - i * steps_per_epoch)
-            trainer.train(step_to_train, train_iter)
+            trainer.train(step_to_train, train_iter, current_step)
             eval_results = trainer.evaluate(dist_eval_dataset)
             ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint_subdir, 'ckpt')
             checkpoint.save(ckpt_path)

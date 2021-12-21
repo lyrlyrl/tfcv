@@ -1,9 +1,11 @@
 import math
-
+import abc
 import tensorflow as tf
 import logging
 
 import time
+
+from tfcv.utils.progress import get_tqdm
 
 __all__ = ['Trainer', 'merge_replica_results']
 
@@ -13,14 +15,15 @@ def merge_replica_results(strategy, inputs):
         return tf.concat(args, 0)
     return tf.nest.map_structure(_merge, *dist_values)
 
-class Trainer(tf.Module):
+class Trainer(tf.Module, meta=abc.ABCMeta):
 
     def __init__(
             self, 
             params,
             model: tf.keras.Model,
             optimizer,
-            metrics=[]) -> None:
+            metrics=[]):
+        super(Trainer, self).__init__(name='trainer')
         self._params = params
 
         self._model = model
@@ -34,6 +37,8 @@ class Trainer(tf.Module):
         
         self._train_timer = 0
 
+        self._logger = logging.getLogger('trainer')
+
     def compile(self):
         strategy = tf.distribute.get_strategy()
         train_step_fn = tf.function(self.train_step)
@@ -46,7 +51,8 @@ class Trainer(tf.Module):
         def train_loop(iterator, steps):
             try:
                 with tf.experimental.async_scope():
-                    for _ in range(steps):
+                    for _ in get_tqdm(range(steps)):
+                    # for _ in range(steps):
                         dist_train_step(iterator)
             except tf.errors.OutOfRangeError:
                 tf.experimental.async_clear_error()
@@ -66,7 +72,7 @@ class Trainer(tf.Module):
 
         for loop_number in range(num_loops):
             steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step            
-            logging.info(f'train loop start at {current_step}')
+            self._logger.info(f'train loop start at {current_step}')
             self.train_loop_begin()
             self._train_loop_fn(train_iterator, steps_to_run)
             self.train_loop_end()
@@ -117,8 +123,11 @@ class Trainer(tf.Module):
         for metric in self._model.metrics:
             logging.info(f'{metric.name}: {metric.result().numpy()}')
     
-    def eval_begin(self):
+    def eval_begin(self, *args, **kwargs):
         pass
 
-    def eval_end(self):
+    def eval_end(self, *args, **kwargs):
         pass
+    @abc.abstractmethod
+    def evaluate(self, dataset):
+        return
