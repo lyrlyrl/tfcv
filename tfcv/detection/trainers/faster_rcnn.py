@@ -1,18 +1,12 @@
 import tensorflow as tf
-import os
-import tfcv
 
 from tfcv.detection.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.detection.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.detection.losses.rpn_loss import RPNLoss
-from tfcv.detection.evaluate.metric import COCOEvaluationMetric, process_predictions
 
-class FasterRCNNTrainer(tfcv.Trainer):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        eval_file = os.path.join(self._params.data.dir, self._params.data.val_json)
-        eval_file = os.path.expanduser(eval_file)
-        self.coco_metric = COCOEvaluationMetric(eval_file, self._params.include_mask)
+from tfcv.detection.trainers.base import DetectionTrainer
+
+class FasterRCNNTrainer(DetectionTrainer):
     def train_step(self, inputs):
         with tf.GradientTape() as tape:
             model_outputs = self._model(
@@ -23,8 +17,8 @@ class FasterRCNNTrainer(tfcv.Trainer):
                 cropped_gt_masks=inputs['cropped_gt_masks'] if self._params.include_mask else None,
                 training=True)
             # model_outputs = self._model(1, training=True)
-            # model_outputs = tf.nest.map_structure(
-            #     lambda x: tf.cast(x, tf.float32), model_outputs)
+            model_outputs = tf.nest.map_structure(
+                lambda x: tf.cast(x, tf.float32), model_outputs)
             losses = self._build_loss(model_outputs, inputs)
             losses['l2_regularization_loss'] = tf.add_n([
                 tf.nn.l2_loss(tf.cast(v, dtype=tf.float32))
@@ -43,8 +37,7 @@ class FasterRCNNTrainer(tfcv.Trainer):
         self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
         self._train_loss.update_state(raw_loss)
         for metric in self._metrics:
-            metric.update_state(losses[metric.name])
-    
+            metric.update_state(losses[metric.name])    
     def inference_step(self, inputs):
         detections = self._model(
             images=inputs['images'],
@@ -53,7 +46,6 @@ class FasterRCNNTrainer(tfcv.Trainer):
         detections['source_ids'] = inputs['source_ids']
         detections['image_info'] = inputs['image_info']
         return detections
-
     def _build_loss(self, model_outputs, inputs):
         if self._params.include_mask:
             mask_rcnn_loss = MaskRCNNLoss()(model_outputs, inputs)
@@ -78,19 +70,3 @@ class FasterRCNNTrainer(tfcv.Trainer):
         if self._params.include_mask:
             losses['mask_rcnn_loss'] = mask_rcnn_loss
         return losses
-    
-    def evaluate(self, dataset):
-        results = []
-        for dp in dataset:
-            results.append(self._inference_op(dp))
-        def _merge(*args):
-            return tf.concat(args, 0).numpy()
-        results = tf.nest.map_structure(_merge, *results)
-        for k, v in results.items():
-            print(k, v.shape)
-        predictions = process_predictions(results)
-        metric = self.coco_metric.predict_metric_fn(predictions)
-        for k, v in metric.items():
-            metric[k] = v.tolist()
-        return metric
-

@@ -58,7 +58,6 @@ class Trainer(tf.Module):
                 return predictions
             self._inference_op = tf.function(dist_inference_op)
 
-
     def train(self, num_steps, train_iterator, current_step = 0):
         if not self._train_loop_fn:
             raise 
