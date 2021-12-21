@@ -42,6 +42,8 @@ loss:
   rpn_box_weight: 1.0
   fast_rcnn_box_weight: 1.0
   l2_weight_decay: 1.0e-4
+backbone:
+  resnet_id: 50
 rpn:
   batch_size_per_im: 256
   fg_fraction: 0.5

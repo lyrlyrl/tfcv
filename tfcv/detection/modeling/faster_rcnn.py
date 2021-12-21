@@ -1,22 +1,24 @@
 import tensorflow as tf
 
 from tfcv.config import config as cfg
+
+from tfcv.classification.modeling.resnet import ResNet
+
 from tfcv.detection.modeling import anchors
 from tfcv.detection.modeling.fpn import FPN
 from tfcv.detection.modeling.heads import RPNHead, BoxHead, MaskHead
-from tfcv.classification.modeling.resnet import ResNet
 from tfcv.detection.ops import roi_ops, spatial_transform_ops, postprocess_ops, training_ops
 
 class FasterRCNN(tf.keras.Model):
     
-    def __init__(self, name='mrcnn', trainable=True, *args, **kwargs):
-        super().__init__(name=name, trainable=trainable, *args, **kwargs)
+    def __init__(self, name='faster_rcnn', *args, **kwargs):
+        super().__init__(name=name, *args, **kwargs)
 
         self.backbone = ResNet(
-            50, 
+            cfg.backbone.resnet_id,
             input_shape=[832, 1344, 3],
-            freeze_at=2,
-            freeze_bn=True,
+            freeze_at=0 if cfg.from_scratch else 2,
+            freeze_bn=False if cfg.from_scratch else True,
             include_top=False)
 
         self.fpn = FPN(
@@ -33,13 +35,11 @@ class FasterRCNN(tf.keras.Model):
         self.box_head = BoxHead(
             num_classes=cfg.num_classes,
             mlp_head_dim=cfg.frcnn.mlp_head_dim,
-            trainable=trainable
         )
         if cfg.include_mask:
             self.mask_head = MaskHead(
                 num_classes=cfg.num_classes,
                 mrcnn_resolution=cfg.mrcnn.resolution,
-                trainable=trainable,
                 name="mask_head"
             )
         else:
@@ -53,7 +53,7 @@ class FasterRCNN(tf.keras.Model):
         gt_classes=None,
         cropped_gt_masks=None,
         training=None):
-        batch_size, image_height, image_width, _ = images.get_shape().as_list()
+        _, image_height, image_width, _ = images.get_shape().as_list()
 
         outputs = dict()
 
@@ -224,3 +224,4 @@ class FasterRCNN(tf.keras.Model):
             })
 
         return outputs
+    

@@ -1,8 +1,8 @@
 import yaml
 import subprocess
 import collections
-import sys
 import os
+
 from tfcv.config import config as cfg
 from tfcv.utils.default_args import PARSER
 
@@ -27,24 +27,22 @@ def update_cfg(config_file):
     return params
 
 def setup_args(arguments):
-    cfg.train_batch_size = arguments.train_batch_size
-    cfg.eval_batch_size = arguments.eval_batch_size
-    cfg.seed = arguments.seed
+    if arguments.seed:
+        cfg.seed = arguments.seed
     cfg.xla = arguments.xla
     cfg.amp = arguments.amp
-    cfg.epochs = arguments.epochs
     cfg.steps_per_loop = arguments.steps_per_loop
-    cfg.eval_samples = arguments.eval_samples
+    if arguments.config_override:
+        cfg.update_args(arguments.config_override)
 
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
-
+    print(arguments)
     config_file = arguments.config_file
     config_file = os.path.abspath(config_file)
     params = update_cfg(config_file)
     cfg.from_dict(params)
-    if not arguments.strict_config:
-        setup_args(arguments)
+    setup_args(arguments)
     cfg.freeze()
 
     model_dir = arguments.model_dir
@@ -58,16 +56,17 @@ if __name__ == '__main__':
     if arguments.task == 'detection':
         main_path = 'tfcv.detection.main'
         if arguments.mode == 'train':
-            subprocess.call(
+            code = subprocess.call(
                 (f'python -m {main_path}'
                 f' train'
                 f' --model_dir {model_dir}'),
                 shell=True
             )
         else:
-            subprocess.run(
-                f'python -m {main_path}'
+            code = subprocess.call(
+                (f'python -m {main_path}'
                 f' eval',
-                f' --model_dir {model_dir}'
+                f' --model_dir {model_dir}'),
+                shell=True
             )
-    
+    exit(code)

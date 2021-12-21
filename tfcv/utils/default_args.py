@@ -33,26 +33,17 @@ RUNTIME_GROUP.add_argument(
 )
 
 RUNTIME_GROUP.add_argument(
+    '--num_gpus',
+    type=int,
+    default=1,
+    help='number of gpus to use'
+)
+
+RUNTIME_GROUP.add_argument(
     '--task',
     type=str,
     choices=['detection', 'classification'],
     required=True
-)
-
-HYPER_GROUP.add_argument(
-    '--train_batch_size',
-    type=int,
-    default=4,
-    metavar='N',
-    help='Batch size (per GPU) used during training'
-)
-
-HYPER_GROUP.add_argument(
-    '--eval_batch_size',
-    type=int,
-    default=4,
-    metavar='N',
-    help='Batch size used during evaluation'
 )
 
 HYPER_GROUP.add_argument(
@@ -75,31 +66,17 @@ HYPER_GROUP.add_argument(
     help='Enable automatic mixed precision'
 )
 
-HYPER_GROUP.add_argument(
-    '--strict_config',
-    action='store_true',
-    help='whether to use config hyperparameter'
-)
-
 # about train
-HYPER_GROUP.add_argument(
-    '--epochs',
-    type=int,
-    default=12,
-    help='Number of training epochs'
-)
-
 HYPER_GROUP.add_argument(
     '--steps_per_loop',
     type=int,
     default=100,
+    metavar='N',
     help='Number of steps per train loop'
 )
 
 HYPER_GROUP.add_argument(
-    '--eval_samples',
-    type=int,
-    default=None,
-    metavar='N',
-    help='Number of evaluation samples'
+    '--config_override',
+    help='A list of KEY=VALUE to overwrite those defined in config.yaml',
+    nargs='+'
 )

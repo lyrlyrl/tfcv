@@ -8,3 +8,6 @@ data:
   val_json: 'annotations/instances_val2017.json'
 # model
 num_classes: 91
+#train
+from_scratch: false
+

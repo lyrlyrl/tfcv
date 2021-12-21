@@ -26,7 +26,7 @@ def setup():
         tf.keras.mixed_precision.experimental.set_policy(policy)
         logging.info('AMP is activated')
 
-def ctl_train():
+def train():
     setup()
     dataset = Dataset()
     strategy = tf.distribute.MirroredStrategy()

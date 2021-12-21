@@ -15,7 +15,7 @@ def merge_replica_results(strategy, inputs):
         return tf.concat(args, 0)
     return tf.nest.map_structure(_merge, *dist_values)
 
-class Trainer(tf.Module, meta=abc.ABCMeta):
+class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
     def __init__(
             self, 
@@ -33,7 +33,7 @@ class Trainer(tf.Module, meta=abc.ABCMeta):
         self._train_loss = tf.keras.metrics.Mean(name='train_loss')
 
         self._train_loop_fn = None
-        self._inference_op = None
+        self._validation_op = None
         
         self._train_timer = 0
 
@@ -57,12 +57,12 @@ class Trainer(tf.Module, meta=abc.ABCMeta):
             except tf.errors.OutOfRangeError:
                 tf.experimental.async_clear_error()
         self._train_loop_fn = train_loop
-        if not self._inference_op:
-            def dist_inference_op(dist_inputs):
-                per_replica_predictions = strategy.run(self.inference_step, args=(dist_inputs, ))
+        if not self._validation_op:
+            def dist_validation_op(dist_inputs):
+                per_replica_predictions = strategy.run(self.validation_step, args=(dist_inputs, ))
                 predictions = merge_replica_results(strategy, per_replica_predictions)
                 return predictions
-            self._inference_op = tf.function(dist_inference_op)
+            self._validation_op = tf.function(dist_validation_op)
 
     def train(self, num_steps, train_iterator, current_step = 0):
         if not self._train_loop_fn:
@@ -93,7 +93,7 @@ class Trainer(tf.Module, meta=abc.ABCMeta):
         self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
         self._train_loss.update_state(raw_loss)
 
-    def inference_step(self, inputs):
+    def validation_step(self, inputs):
         model_outputs = self._model(inputs, training=False)
         return model_outputs
     
@@ -128,6 +128,7 @@ class Trainer(tf.Module, meta=abc.ABCMeta):
 
     def eval_end(self, *args, **kwargs):
         pass
+
     @abc.abstractmethod
     def evaluate(self, dataset):
         return

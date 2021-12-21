@@ -4,7 +4,7 @@ import os
 import yaml
 
 from tfcv.config import config as cfg
-from tfcv.detection.runtime.run import ctl_train, evaluate
+from tfcv.detection.runtime.run import train, evaluate
 
 PARSER = argparse.ArgumentParser(
     description='custom implementation of object detection models for TensorFlow 2.x',
@@ -47,6 +47,6 @@ if __name__ == '__main__':
     cfg.from_dict(params)
     cfg.model_dir = model_dir
     if arguments.mode == 'train':
-        ctl_train()
+        train()
     else:
         evaluate()
