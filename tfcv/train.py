@@ -32,6 +32,7 @@ def setup_args(arguments):
     cfg.xla = arguments.xla
     cfg.amp = arguments.amp
     cfg.steps_per_loop = arguments.steps_per_loop
+    cfg.num_gpus = arguments.num_gpus
     if arguments.config_override:
         cfg.update_args(arguments.config_override)
 
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     config_path = os.path.join(model_dir, f'{arguments.mode}_config.yaml')
     with open(config_path, 'w') as fp:
         yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
+    num_gpus = arguments.num_gpus
 
     if arguments.task == 'detection':
         main_path = 'tfcv.detection.main'
@@ -63,10 +65,13 @@ if __name__ == '__main__':
                 shell=True
             )
         else:
+            assert arguments.eval_number
+            eval_number = ' '.join(str(s) for s in arguments.eval_number)
             code = subprocess.call(
                 (f'python -m {main_path}'
-                f' eval',
-                f' --model_dir {model_dir}'),
+                f' eval'
+                f' --model_dir {model_dir}'
+                f' --eval_number {eval_number}'),
                 shell=True
             )
     exit(code)

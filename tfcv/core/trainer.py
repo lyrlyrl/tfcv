@@ -21,7 +21,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             self, 
             params,
             model: tf.keras.Model,
-            optimizer,
+            optimizer=None,
             metrics=[]):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
@@ -32,31 +32,25 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         self._train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-        self._train_loop_fn = None
+        self._train_op = None
         self._validation_op = None
         
         self._train_timer = 0
 
         self._logger = logging.getLogger('trainer')
 
-    def compile(self):
+    def compile(self, train=True):
         strategy = tf.distribute.get_strategy()
-        train_step_fn = tf.function(self.train_step)
-        def dist_train_step(iterator):
-            strategy.run(
-                train_step_fn,
-                args=(next(iterator),)
-            )
-        dist_train_step = tf.function(dist_train_step)
-        def train_loop(iterator, steps):
-            try:
-                with tf.experimental.async_scope():
-                    for _ in get_tqdm(range(steps)):
-                    # for _ in range(steps):
-                        dist_train_step(iterator)
-            except tf.errors.OutOfRangeError:
-                tf.experimental.async_clear_error()
-        self._train_loop_fn = train_loop
+        
+        if train:
+            train_step_fn = tf.function(self.train_step)
+            def dist_train_step(iterator):
+                strategy.run(
+                    train_step_fn,
+                    args=(next(iterator),)
+                )
+            self._train_op = tf.function(dist_train_step)
+
         if not self._validation_op:
             def dist_validation_op(dist_inputs):
                 per_replica_predictions = strategy.run(self.validation_step, args=(dist_inputs, ))
@@ -64,17 +58,23 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
                 return predictions
             self._validation_op = tf.function(dist_validation_op)
 
-    def train(self, num_steps, train_iterator, current_step = 0):
-        if not self._train_loop_fn:
+    def train(self, num_steps, train_iterator, current_step=0, epoch_number=None):
+        if not self._train_op:
             raise 
         assert num_steps > 0
         num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
 
         for loop_number in range(num_loops):
             steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step            
-            self._logger.info(f'train loop start at {current_step}')
             self.train_loop_begin()
-            self._train_loop_fn(train_iterator, steps_to_run)
+            try:
+                with tf.experimental.async_scope():                    
+                    for step in get_tqdm(
+                        range(steps_to_run),
+                        desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
+                        self._train_op(train_iterator)
+            except tf.errors.OutOfRangeError:
+                tf.experimental.async_clear_error()
             self.train_loop_end()
             current_step += steps_to_run
 

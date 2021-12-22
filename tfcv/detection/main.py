@@ -4,7 +4,7 @@ import os
 import yaml
 
 from tfcv.config import config as cfg
-from tfcv.detection.runtime.run import train, evaluate
+from tfcv.detection.runtime.run import train_and_evaluate, evaluate
 
 PARSER = argparse.ArgumentParser(
     description='custom implementation of object detection models for TensorFlow 2.x',
@@ -25,6 +25,14 @@ PARSER.add_argument(
     required=True
 )
 
+PARSER.add_argument(
+    '--eval_number',
+    type=int,
+    default=None,
+    nargs='+',
+    help='workspace dir',
+)
+
 if __name__ == '__main__':
     # setup params
     arguments = PARSER.parse_args()
@@ -39,7 +47,7 @@ if __name__ == '__main__':
     # remove custom tf handler that logs to stderr
     logging.getLogger('tensorflow').setLevel(logging.INFO)
     logging.getLogger('tensorflow').handlers.clear()
-
+    print(arguments)
     model_dir = arguments.model_dir
     config_file = os.path.join(model_dir, f'{arguments.mode}_config.yaml')
     with open(config_file, 'r') as fp:
@@ -47,6 +55,6 @@ if __name__ == '__main__':
     cfg.from_dict(params)
     cfg.model_dir = model_dir
     if arguments.mode == 'train':
-        train()
+        train_and_evaluate()
     else:
-        evaluate()
+        evaluate(arguments.eval_number)

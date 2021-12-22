@@ -13,7 +13,7 @@ class DownloadProgbar:
         self.bar = get_tqdm(
             desc='Download process',
             total=total_size,
-            unit='Byte',
+            unit='B',
             unit_scale=True)
         self._bid = 0
     def update(self, count, block_size):

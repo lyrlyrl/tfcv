@@ -33,6 +33,14 @@ RUNTIME_GROUP.add_argument(
 )
 
 RUNTIME_GROUP.add_argument(
+    '--eval_number',
+    type=int,
+    default=None,
+    nargs='+',
+    help='checkpoint number to evaluate',
+)
+
+RUNTIME_GROUP.add_argument(
     '--num_gpus',
     type=int,
     default=1,

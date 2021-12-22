@@ -1,0 +1,3 @@
+_base: 'faster_rcnn_r50_fpn_1x.yaml'
+backbone:
+  resnet_id: 101

@@ -1,10 +1,14 @@
 # hyper
 xla: true
 amp: false
-checkpoint_subdir: 'ckpt'
-tflog_subdir: 'tflogs'
+checkpoint:
+  subdir: 'ckpt'
+  max_to_keep: 5
+  name: 'ckpt'
+tflog:
+  subdir: 'tflogs'
 use_synthetic_data: false
 seed: null
 solver:
-  steps_per_loop: 200
+  steps_per_loop: 100
   evaluate_interval: 1.0
