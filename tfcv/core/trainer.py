@@ -69,7 +69,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             self.train_loop_begin()
             try:
                 with tf.experimental.async_scope():                    
-                    for step in get_tqdm(
+                    for _ in get_tqdm(
                         range(steps_to_run),
                         desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
                         self._train_op(train_iterator)

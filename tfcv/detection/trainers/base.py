@@ -1,7 +1,9 @@
+import math
 import tensorflow as tf
 import os
 
 import tfcv
+from tfcv.utils.progress import get_tqdm
 
 from tfcv.detection.evaluate.metric import COCOEvaluationMetric, process_predictions
 
@@ -13,7 +15,7 @@ class DetectionTrainer(tfcv.Trainer):
         self.coco_metric = COCOEvaluationMetric(eval_file, self._params.include_mask)
     def evaluate(self, dataset):
         results = []
-        for dp in dataset:
+        for dp in get_tqdm(dataset):
             results.append(self._validation_op(dp))
         def _merge(*args):
             return tf.concat(args, 0).numpy()
