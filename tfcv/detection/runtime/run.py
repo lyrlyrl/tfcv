@@ -82,6 +82,7 @@ def train_and_evaluate():
         current_step = optimizer.iterations.numpy()
 
         eval_results = {}
+        best_results = {}
         eval_results_dir = os.path.join(cfg.model_dir, 'eval_results.yaml')
 
         for i in np.arange(0, cfg.solver.epochs, cfg.solver.evaluate_interval):
@@ -129,7 +130,7 @@ def evaluate(eval_number):
         for i in eval_number:
             ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint.subdir, f'{cfg.checkpoint.name}-{i}')
             try:
-                checkpoint.restore(ckpt_path)
+                checkpoint.restore(ckpt_path).expect_partial()
                 eval_result = trainer.evaluate(dist_eval_dataset)
                 eval_results[i] = eval_result
             except NotFoundError:

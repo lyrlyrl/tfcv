@@ -14,7 +14,7 @@ class DetectionTrainer(tfcv.Trainer):
     def evaluate(self, dataset):
         results = []
         for dp in dataset:
-            results.append(self._inference_op(dp))
+            results.append(self._validation_op(dp))
         def _merge(*args):
             return tf.concat(args, 0).numpy()
         results = tf.nest.map_structure(_merge, *results)
