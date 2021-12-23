@@ -1,0 +1,5 @@
+_base: 'faster_rcnn_r50_fpn_1x.yaml'
+data:
+  export_image_size: !!python/tuple
+  - 832
+  - 1344

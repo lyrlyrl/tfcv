@@ -12,3 +12,13 @@ seed: null
 solver:
   steps_per_loop: 100
   evaluate_interval: 1.0
+# imagenet pixel mean and std
+data:
+  pixel_std: !!python/tuple
+  - 0.229
+  - 0.224
+  - 0.225
+  pixel_mean: !!python/tuple
+  - 0.485
+  - 0.456
+  - 0.406

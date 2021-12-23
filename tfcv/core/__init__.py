@@ -6,3 +6,4 @@ from tfcv.core.task import *
 from tfcv.core.trainer import *
 from tfcv.core.metric import *
 from tfcv.core.model import *
+from tfcv.core.exporter import *

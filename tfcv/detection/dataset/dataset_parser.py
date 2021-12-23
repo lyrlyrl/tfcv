@@ -109,6 +109,8 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
 
             image = tf.image.convert_image_dtype(data['image'], dtype=tf.float32)
 
+            image = preprocess_ops.normalize_image(image, params.data.pixel_std, params.data.pixel_mean)
+
             source_id = process_source_id(data['source_id'])
 
             if mode == 'eval':
@@ -215,7 +217,6 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
 
 
 def preprocess_image(image, boxes, instance_masks, image_size, max_level, augment_input_data=False, seed=None):
-    image = preprocess_ops.normalize_image(image)
 
     if augment_input_data:
         image, boxes, instance_masks = augment_image(image=image, boxes=boxes, instance_masks=instance_masks, seed=seed)

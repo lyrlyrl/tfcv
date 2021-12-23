@@ -55,13 +55,16 @@ if __name__ == '__main__':
         yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
     num_gpus = arguments.num_gpus
 
-    if arguments.task == 'detection':
-        main_path = 'tfcv.detection.main'
+    if cfg.task == 'detection':
+        main_path = 'tfcv.detection.train'
         if arguments.mode == 'train':
-            code = subprocess.call(
-                (f'python -m {main_path}'
+            cmd_train = (f'python -m {main_path}'
                 f' train'
-                f' --model_dir {model_dir}'),
+                f' --model_dir {model_dir}')
+            if arguments.export_to_savedmodel:
+                cmd_train += ' --export_to_savedmodel'
+            code = subprocess.call(
+                cmd_train,
                 shell=True
             )
         else:

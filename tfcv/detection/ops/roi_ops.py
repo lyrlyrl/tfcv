@@ -118,7 +118,8 @@ def _propose_rois_gpu(scores,
 
 def multilevel_propose_rois(scores_outputs,
                             box_outputs,
-                            all_anchors,
+                            anchor_boxes,
+                            # all_anchors,
                             image_info,
                             rpn_pre_nms_topn,
                             rpn_post_nms_topn,
@@ -166,7 +167,7 @@ def multilevel_propose_rois(scores_outputs,
         levels = scores_outputs.keys()
         scores = []
         rois = []
-        anchor_boxes = all_anchors.get_unpacked_boxes()
+        # anchor_boxes = all_anchors.get_unpacked_boxes()
 
         height = tf.expand_dims(image_info[:, 0:1], axis=-1)
         width = tf.expand_dims(image_info[:, 1:2], axis=-1)

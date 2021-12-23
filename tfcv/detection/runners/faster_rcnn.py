@@ -6,7 +6,7 @@ from tfcv.detection.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.detection.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.detection.losses.rpn_loss import RPNLoss
 
-from tfcv.detection.trainers.base import DetectionTrainer
+from tfcv.detection.runners.base import DetectionTrainer, DetectionExporter
 
 class FasterRCNNTrainer(DetectionTrainer):
 
@@ -76,3 +76,5 @@ class FasterRCNNTrainer(DetectionTrainer):
         if self._params.include_mask:
             losses['mask_rcnn_loss'] = mask_rcnn_loss
         return losses
+
+FasterRCNNExporter = DetectionExporter

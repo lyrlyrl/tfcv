@@ -49,18 +49,20 @@ class FasterRCNN(tf.keras.Model):
         self, 
         images,
         image_info,
+        anchor_boxes=None,
         gt_boxes=None,
         gt_classes=None,
         cropped_gt_masks=None,
         training=None):
-        _, image_height, image_width, _ = images.get_shape().as_list()
-
+        batch_size, image_height, image_width, _ = images.get_shape().as_list()
         outputs = dict()
 
-        all_anchors = anchors.Anchors(cfg.min_level, cfg.max_level,
+        if not anchor_boxes:
+            all_anchors = anchors.Anchors(cfg.min_level, cfg.max_level,
                                     cfg.anchor.num_scales, cfg.anchor.aspect_ratios,
                                     cfg.anchor.scale,
                                     (image_height, image_width))
+            anchor_boxes = all_anchors.get_unpacked_boxes()
 
         backbone_feats = self.backbone(images, training=training)
 
@@ -95,7 +97,7 @@ class FasterRCNN(tf.keras.Model):
         rpn_box_scores, rpn_box_rois = roi_ops.multilevel_propose_rois(
             scores_outputs=rpn_score_outputs,
             box_outputs=rpn_box_outputs,
-            all_anchors=all_anchors,
+            anchor_boxes=anchor_boxes,
             image_info=image_info,
             rpn_pre_nms_topn=rpn_pre_nms_topn,
             rpn_post_nms_topn=rpn_post_nms_topn,

@@ -10,7 +10,7 @@ from tfcv.config import config as cfg
 from tfcv.detection.dataset.dataset import Dataset
 from tfcv.detection.modeling.faster_rcnn import FasterRCNN
 from tfcv.detection.runtime.learning_rate import PiecewiseConstantWithWarmupSchedule
-from tfcv.detection.trainers.faster_rcnn import FasterRCNNTrainer
+from tfcv.detection.runners.faster_rcnn import FasterRCNNTrainer, FasterRCNNExporter
 
 def setup():
     if cfg.xla:
@@ -26,7 +26,7 @@ def setup():
         tf.keras.mixed_precision.experimental.set_policy(policy)
         logging.info('AMP is activated')
 
-def train_and_evaluate():
+def train_and_evaluate(export_to_savedmodel=False):
     setup()
     dataset = Dataset()
     if cfg.num_gpus > 1:
@@ -97,6 +97,9 @@ def train_and_evaluate():
             eval_results[str(i)] = eval_result
             with open(eval_results_dir, 'w') as fp:
                 yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
+        
+        if export_to_savedmodel:
+            pass
 
 def evaluate(eval_number):
     setup()
@@ -139,6 +142,23 @@ def evaluate(eval_number):
                 with open(eval_results_dir, 'w') as fp:
                     yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
 
+def export(savedmodel_dir, ckpt_number=None):
+    model = create_model()
+    ckpt = tf.train.Checkpoint(model=model)
+    if ckpt_number != None:
+        logging.info('export version specific model')
+        ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint.subdir, f'{cfg.checkpoint.name}-{ckpt_number}')
+    else:
+        logging.info('export best model')
+    ckpt.restore(ckpt_path).expect_partial()
+
+    exporter = create_exporter(model)
+
+    tf.saved_model.save(
+        exporter, 
+        savedmodel_dir, 
+        signatures=exporter.inference_from_tensor.get_concrete_function(tf.TensorSpec([1]+list(cfg.data.export_image_size)+[3], tf.uint8)))
+
 def create_model():
     if cfg.meta_arch == 'faster_rcnn':
         model = FasterRCNN()
@@ -146,7 +166,7 @@ def create_model():
     return model
 
 def initialize(checkpoint):
-    ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint_subdir)
+    ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint.subdir)
     checkpoint_path = tf.train.latest_checkpoint(ckpt_path)
     if checkpoint_path is None:
         logging.info(f"No checkpoint was found in: {ckpt_path}")
@@ -173,3 +193,7 @@ def create_metrics():
 def create_trainer(model, optimizer=None, metrics=[]):
     if cfg.meta_arch == 'faster_rcnn':
         return FasterRCNNTrainer(cfg, model, optimizer, metrics)
+
+def create_exporter(model):
+    if cfg.meta_arch == 'faster_rcnn':
+        return FasterRCNNExporter(model, cfg)

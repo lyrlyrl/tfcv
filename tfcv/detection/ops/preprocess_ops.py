@@ -19,7 +19,7 @@ import tensorflow as tf
 from tfcv.detection.object_detection import preprocessor
 
 
-def normalize_image(image):
+def normalize_image(image, pixel_std=(0.229, 0.224, 0.225), pixel_mean=(0.485, 0.456, 0.406)):
     """Normalize the image.
 
     Args:
@@ -29,11 +29,13 @@ def normalize_image(image):
     normalized_image: a tensor which has the same shape and dtype as image,
       with pixel values normalized.
     """
-    offset = tf.constant([0.485, 0.456, 0.406])
-    offset = tf.reshape(offset, shape=(1, 1, 3))
+    image_shape = image.get_shape().as_list()
+    batched = (len(image_shape) == 4)
+    offset = tf.constant(pixel_mean)
+    offset = tf.reshape(offset, shape=(1, 1, 1, 3) if batched else (1, 1, 3))
 
-    scale = tf.constant([0.229, 0.224, 0.225])
-    scale = tf.reshape(scale, shape=(1, 1, 3))
+    scale = tf.constant(pixel_std)
+    scale = tf.reshape(scale, shape=(1, 1, 1, 3) if batched else (1, 1, 3))
 
     normalized_image = (image - offset) / scale
 
@@ -94,11 +96,20 @@ def resize_and_pad(image, target_size, stride, boxes=None, masks=None):
       the scaled image.
     masks: None or the processed mask tensor after being resized and padded.
     """
-
-    input_height, input_width, _ = tf.unstack(
+    image_shape = image.get_shape().as_list()
+    batched = (len(image_shape) == 4)
+    if batched:
+      batch_size = image_shape[0]
+    if batched:
+      _, input_height, input_width, _ = tf.unstack(
         tf.cast(tf.shape(input=image), dtype=tf.float32),
         axis=0
-    )
+      )
+    else:
+      input_height, input_width, _ = tf.unstack(
+          tf.cast(tf.shape(input=image), dtype=tf.float32),
+          axis=0
+      )
 
     target_height, target_width = target_size
 
@@ -116,7 +127,10 @@ def resize_and_pad(image, target_size, stride, boxes=None, masks=None):
     padded_width = int(math.ceil(target_width * 1.0 / stride) * stride)
 
     image = tf.image.pad_to_bounding_box(image, 0, 0, padded_height, padded_width)
-    image.set_shape([padded_height, padded_width, 3])
+    if batched:
+      image.set_shape([batch_size, padded_height, padded_width, 3])
+    else:
+      image.set_shape([padded_height, padded_width, 3])
 
     image_info = tf.stack([
         tf.cast(scaled_height, dtype=tf.float32),
@@ -125,6 +139,9 @@ def resize_and_pad(image, target_size, stride, boxes=None, masks=None):
         input_height,
         input_width]
     )
+    if batched:
+      image_info = tf.expand_dims(image_info, axis=0)
+      image_info = tf.tile(image_info, [batch_size, 1])
 
     if boxes is not None:
         normalized_box_list = preprocessor.box_list.BoxList(boxes)

@@ -41,17 +41,16 @@ RUNTIME_GROUP.add_argument(
 )
 
 RUNTIME_GROUP.add_argument(
+    '--export_to_savedmodel',
+    action='store_true',
+    help='export model to tf saved_model format'
+)
+
+RUNTIME_GROUP.add_argument(
     '--num_gpus',
     type=int,
     default=1,
     help='number of gpus to use'
-)
-
-RUNTIME_GROUP.add_argument(
-    '--task',
-    type=str,
-    choices=['detection', 'classification'],
-    required=True
 )
 
 HYPER_GROUP.add_argument(
