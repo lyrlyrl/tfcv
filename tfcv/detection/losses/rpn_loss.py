@@ -105,14 +105,14 @@ class RPNLoss:
 
             score_losses.append(
                 _rpn_score_loss(
-                    score_outputs=score_outputs[level],
+                    score_outputs=score_outputs[str(level)],
                     score_targets=score_targets_at_level,
                     normalizer=tf.cast(self._batch_size * self._rpn_batch_size_per_im, dtype=tf.float32)
                 )
             )
 
             box_losses.append(_rpn_box_loss(
-                box_outputs=box_outputs[level],
+                box_outputs=box_outputs[str(level)],
                 box_targets=box_targets_at_level,
                 normalizer=1.0
             ))
