@@ -147,7 +147,7 @@ class ResNet(tfcv.Model):
                     block_repeats=spec[2],
                     trainable=(freeze_at-2 < i),
                     name=f'resnet{model_id}/group{i}')
-            endpoints[i + 2] = x
+            endpoints[str(i + 2)] = x
 
         if include_top:
             raise

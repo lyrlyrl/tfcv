@@ -56,7 +56,6 @@ class FasterRCNN(tf.keras.Model):
         training=None):
         batch_size, image_height, image_width, _ = images.get_shape().as_list()
         outputs = dict()
-
         if not anchor_boxes:
             all_anchors = anchors.Anchors(cfg.min_level, cfg.max_level,
                                     cfg.anchor.num_scales, cfg.anchor.aspect_ratios,
@@ -74,7 +73,7 @@ class FasterRCNN(tf.keras.Model):
             box_outputs = dict()
 
             for level in range(min_level, max_level + 1):
-                scores_outputs[level], box_outputs[level] = self.rpn_head(features[level], training=training)
+                scores_outputs[str(level)], box_outputs[str(level)] = self.rpn_head(features[str(level)], training=training)
 
             return scores_outputs, box_outputs
 
@@ -93,7 +92,6 @@ class FasterRCNN(tf.keras.Model):
             rpn_pre_nms_topn = cfg.rpn.test.pre_nms_topn
             rpn_post_nms_topn = cfg.rpn.test.post_nms_topn
             rpn_nms_threshold = cfg.rpn.test.nms_thresh
-
         rpn_box_scores, rpn_box_rois = roi_ops.multilevel_propose_rois(
             scores_outputs=rpn_score_outputs,
             box_outputs=rpn_box_outputs,
@@ -103,7 +101,7 @@ class FasterRCNN(tf.keras.Model):
             rpn_post_nms_topn=rpn_post_nms_topn,
             rpn_nms_threshold=rpn_nms_threshold,
             rpn_min_size=cfg.rpn.min_size,
-            bbox_reg_weights=None
+            bbox_reg_weights=None,
         )
 
         rpn_box_rois = tf.cast(rpn_box_rois, dtype=tf.float32)
@@ -131,8 +129,7 @@ class FasterRCNN(tf.keras.Model):
             output_size=7,
             training=training
         )
-
-        class_outputs, box_outputs, _ = self.box_head(inputs=box_roi_features)
+        class_outputs, box_outputs, _ = self.box_head(box_roi_features, training=training)
 
         if not training:
             detections = postprocess_ops.generate_detections_gpu(
@@ -143,6 +140,7 @@ class FasterRCNN(tf.keras.Model):
                 pre_nms_num_detections=cfg.rpn.test.post_nms_topn,
                 post_nms_num_detections=cfg.frcnn.test.detections_per_image,
                 nms_threshold=cfg.frcnn.test.nms,
+                nms_score_threshold=cfg.frcnn.test.score,
                 bbox_reg_weights=cfg.frcnn.bbox_reg_weights
             )
 
@@ -206,7 +204,6 @@ class FasterRCNN(tf.keras.Model):
 
         if training:
             mask_targets = training_ops.get_mask_targets(
-
                 fg_boxes=selected_box_rois,
                 fg_proposal_to_label_map=proposal_to_label_map,
                 fg_box_targets=selected_box_targets,

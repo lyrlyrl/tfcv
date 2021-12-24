@@ -74,3 +74,4 @@ frcnn:
   test:
     detections_per_image: 100
     nms: 0.5
+    score: 0.0

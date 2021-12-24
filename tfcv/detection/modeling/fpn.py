@@ -167,48 +167,48 @@ class FPN(tf.keras.Model):
 
         # Get input feature pyramid from backbone.
         inputs = self._build_input_pyramid(input_specs, min_level)
-        upsample_max_level = min(max(inputs.keys()), max_level)
+        upsample_max_level = min(max(list(map(int, inputs.keys()))), max_level)
 
         # Build lateral connections.
         feats_lateral = {}
         for level in range(min_level, upsample_max_level + 1):
-            feats_lateral[level] = conv2d(
+            feats_lateral[str(level)] = conv2d(
                 filters=num_filters,
                 kernel_size=1,
                 padding='same',
                 kernel_initializer=kernel_initializer,
                 name='fpn/lateral_1x1_c{}'.format(level))(
-                        inputs[level])
+                        inputs[str(level)])
 
         # Build top-down path.
-        feats = {upsample_max_level: feats_lateral[upsample_max_level]}
+        feats = {str(upsample_max_level): feats_lateral[str(upsample_max_level)]}
         for level in range(upsample_max_level - 1, min_level - 1, -1):
-            feats[level] = spatial_transform_ops.nearest_upsampling(
-                feats[level + 1], 2) + feats_lateral[level]
+            feats[str(level)] = spatial_transform_ops.nearest_upsampling(
+                feats[str(level + 1)], 2) + feats_lateral[str(level)]
 
         for level in range(min_level, upsample_max_level + 1):
-            feats[level] = conv2d(
+            feats[str(level)] = conv2d(
                 filters=num_filters,
                 strides=1,
                 kernel_size=3,
                 padding='same',
                 kernel_initializer=kernel_initializer,
-                name='fpn/posthoc_3x3_p{}'.format(level))(feats[level])
+                name='fpn/posthoc_3x3_p{}'.format(level))(feats[str(level)])
 
 
         if max_level == upsample_max_level + 1:
-            feats[max_level] = tf.keras.layers.MaxPool2D(
+            feats[str(max_level)] = tf.keras.layers.MaxPool2D(
                 pool_size=1,
                 strides=2,
                 padding='valid',
                 name='fpn/coarser_3x3_p%d' % max_level,
-            )(feats[max_level - 1])
+            )(feats[str(max_level - 1)])
         else:
             for level in range(upsample_max_level + 1, max_level + 1):
-                feats_in = feats[level - 1]
+                feats_in = feats[str(level - 1)]
                 if level > upsample_max_level + 1:
                     feats_in = tf.keras.layers.Activation(activation)(feats_in)
-                feats[level] = conv2d(
+                feats[str(level)] = conv2d(
                     filters=num_filters,
                     strides=2,
                     kernel_size=3,
@@ -220,7 +220,7 @@ class FPN(tf.keras.Model):
 
     def _build_input_pyramid(self, input_specs, min_level):
         assert isinstance(input_specs, dict)
-        if min(input_specs.keys()) > min_level:
+        if min(list(map(int, input_specs.keys()))) > min_level:
             raise ValueError(
                     'Backbone min level should be less or equal to FPN min level')
 

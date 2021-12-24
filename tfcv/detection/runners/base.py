@@ -47,15 +47,17 @@ class DetectionExporter(tfcv.Exporter):
                 image,
                 None,
                 None,
-                image_size=self._params.data.export_image_size,
+                image_size=self._params.data.image_size,
                 max_level=self._params.max_level
             )
         return image, image_info
     
     def inference_step(self, image):
         image, image_info = self.preprocess(image)
-        detections = self._model(
+        detections = self._model.call(
             image, image_info, training=False
         )
         detections['image_info'] = image_info
         return detections
+    
+    

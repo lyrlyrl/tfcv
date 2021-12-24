@@ -211,6 +211,7 @@ def generate_detections_gpu(class_outputs,
                             pre_nms_num_detections=1000,
                             post_nms_num_detections=100,
                             nms_threshold=0.3,
+                            nms_score_threshold=0.0,
                             bbox_reg_weights=(10., 10., 5., 5.)
                             ):
     """Generate the final detections given the model outputs (GPU version).
@@ -284,7 +285,7 @@ def generate_detections_gpu(class_outputs,
             max_output_size_per_class=pre_nms_num_detections,
             max_total_size=post_nms_num_detections,
             iou_threshold=nms_threshold,
-            score_threshold=0.0,
+            score_threshold=nms_score_threshold,
             pad_per_class=False
         )
 

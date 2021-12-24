@@ -263,18 +263,18 @@ def multilevel_crop_and_resize(features,
       [batch_size, num_boxes, output_size, output_size, num_filters].
     """
     with tf.name_scope('multilevel_crop_and_resize'):
-        levels = features.keys()
+        levels = list(map(int, features.keys()))
         min_level = min(levels)
         max_level = max(levels)
         _, max_feature_height, max_feature_width, _ = (
-            features[min_level].get_shape().as_list())
+            features[str(min_level)].get_shape().as_list())
 
         # Stack feature pyramid into a features_all of shape
         # [batch_size, levels, height, width, num_filters].
         features_all = []
         for level in range(min_level, max_level + 1):
             features_all.append(
-                tf.image.pad_to_bounding_box(features[level], 0, 0, max_feature_height, max_feature_width))
+                tf.image.pad_to_bounding_box(features[str(level)], 0, 0, max_feature_height, max_feature_width))
 
         features_all = tf.stack(features_all, axis=1)
 

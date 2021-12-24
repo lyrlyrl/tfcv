@@ -175,11 +175,10 @@ def multilevel_propose_rois(scores_outputs,
 
         for level in levels:
 
-            with tf.name_scope('level_%d' % level) as scope:
+            with tf.name_scope('level_%d' % int(level)) as scope:
 
                 batch_size, feature_h, feature_w, num_anchors_per_location = scores_outputs[level].get_shape().as_list()
                 num_boxes = feature_h * feature_w * num_anchors_per_location
-
                 this_level_scores = tf.reshape(scores_outputs[level], [batch_size, num_boxes])
                 this_level_scores = tf.sigmoid(this_level_scores)
                 this_level_boxes = tf.reshape(box_outputs[level], [batch_size, num_boxes, 4])

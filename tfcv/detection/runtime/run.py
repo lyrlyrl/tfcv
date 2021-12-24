@@ -153,11 +153,11 @@ def export(savedmodel_dir, ckpt_number=None):
     ckpt.restore(ckpt_path).expect_partial()
 
     exporter = create_exporter(model)
-
     tf.saved_model.save(
         exporter, 
         savedmodel_dir, 
-        signatures=exporter.inference_from_tensor.get_concrete_function(tf.TensorSpec([1]+list(cfg.data.export_image_size)+[3], tf.uint8)))
+        signatures=exporter.inference_from_tensor.get_concrete_function(tf.TensorSpec([cfg.inference_batch_size]+list(cfg.data.export_image_size)+[3], tf.uint8))
+        )
 
 def create_model():
     if cfg.meta_arch == 'faster_rcnn':

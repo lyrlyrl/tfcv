@@ -156,7 +156,7 @@ class Anchors:
             steps = feat_size0 * feat_size1 * self.get_anchors_per_location()
             indices = tf.range(count, count + steps)
             count += steps
-            labels_unpacked[level] = tf.reshape(
+            labels_unpacked[str(level)] = tf.reshape(
                 tf.gather(labels, indices), [feat_size0, feat_size1, -1])
         return labels_unpacked
 

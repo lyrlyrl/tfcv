@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class RPNHead(tf.keras.models.Model):
+class RPNHead(tf.keras.layers.Layer):
 
     def __init__(self, 
                 name,
@@ -55,7 +55,7 @@ class RPNHead(tf.keras.models.Model):
         return scores, bboxes
 
 
-class BoxHead(tf.keras.Model):
+class BoxHead(tf.keras.layers.Layer):
 
     def __init__(self, num_classes=91, mlp_head_dim=1024, *args, **kwargs):
         """Box and class branches for the Mask-RCNN model.
@@ -111,7 +111,7 @@ class BoxHead(tf.keras.Model):
 
         # reshape inputs before FC.
         batch_size, num_rois, height, width, filters = inputs.get_shape().as_list()
-
+        
         net = tf.reshape(inputs, [batch_size, num_rois, height * width * filters])
 
         net = self._dense_fc6(net)
@@ -125,7 +125,7 @@ class BoxHead(tf.keras.Model):
         return class_outputs, box_outputs, box_features
 
 
-class MaskHead(tf.keras.Model):
+class MaskHead(tf.keras.layers.Layer):
 
     @staticmethod
     def _get_stddev_equivalent_to_msra_fill(kernel_size, fan_out):
@@ -205,7 +205,7 @@ class MaskHead(tf.keras.Model):
             name='mask_fcn_logits'
         )
 
-    def call(self, inputs, training=True, **kwargs):
+    def call(self, inputs, **kwargs):
         """
         Args:
             inputs: tuple of two tensors:
