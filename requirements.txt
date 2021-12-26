@@ -1,0 +1,8 @@
+tensorflow>=2.6.0
+tensorflow-addons
+pycocotools
+opencv-python
+tensorflow-model-optimization
+dataclasses
+pyyaml
+tqdm
