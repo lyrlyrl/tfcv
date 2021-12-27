@@ -1,11 +1,11 @@
 _base: '_base.yaml'
 # model
-meta_arch: 'faster_rcnn'
+meta_arch: 'genelized_rcnn'
 include_mask: false
 max_level: 6
 min_level: 2
 solver:
-  epochs: 12
+  epochs: 14
   best_eval_metric: 'mAP'
 data:
   augment_input: true
@@ -18,7 +18,7 @@ optimization:
   learning_rate_boundaries:
   - 0.3
   - 8.0
-  - 10.0
+  - 11.0
   learning_rate_values:
   - 1.0e-2
   - 1.0e-3

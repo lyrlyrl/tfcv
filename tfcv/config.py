@@ -1,4 +1,7 @@
 import pprint
+import collections
+import os
+import yaml
 
 class AttrDict():
 
@@ -74,3 +77,32 @@ class AttrDict():
 config = AttrDict()
 
 _C = config
+
+def _dict_update(orig_dict, new_dict):
+    for key, val in new_dict.items():
+        if isinstance(val, collections.abc.Mapping):
+            tmp = _dict_update(orig_dict.get(key, {}), val)
+            orig_dict[key] = tmp
+        else:
+            orig_dict[key] = new_dict[key]
+    return orig_dict
+
+def update_cfg(config_file):
+    assert os.path.isfile(config_file)
+    with open(config_file, 'r') as f:
+        params = yaml.load(f, Loader=yaml.CLoader)
+    if '_base' in params:
+        new_config_file = os.path.normpath(os.path.join(config_file, '..', params['_base']))
+        params = _dict_update(update_cfg(new_config_file), params)
+        del params['_base']
+    return params
+
+def setup_args(arguments, cfg):
+    if arguments.seed:
+        cfg.seed = arguments.seed
+    cfg.xla = arguments.xla
+    cfg.amp = arguments.amp
+    cfg.steps_per_loop = arguments.steps_per_loop
+    cfg.num_gpus = arguments.num_gpus
+    if arguments.config_override:
+        cfg.update_args(arguments.config_override)

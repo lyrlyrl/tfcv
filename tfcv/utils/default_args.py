@@ -1,12 +1,12 @@
 import argparse
 
-PARSER = argparse.ArgumentParser(
+TRAIN_PARSER = argparse.ArgumentParser(
     description='custom implementation of cv models for TensorFlow 2.x',
     add_help=True)
 
 # store hyperparameters
-RUNTIME_GROUP = PARSER.add_argument_group('Runtime')
-HYPER_GROUP = PARSER.add_argument_group('Hyperparameters')
+RUNTIME_GROUP = TRAIN_PARSER.add_argument_group('Runtime')
+HYPER_GROUP = TRAIN_PARSER.add_argument_group('Hyperparameters')
 
 RUNTIME_GROUP.add_argument(
     'mode',

@@ -5,12 +5,13 @@ import tensorflow as tf
 from tensorflow.python.framework.errors_impl import NotFoundError
 import yaml
 
-from tfcv.config import config as cfg
-
 from tfcv.datasets.coco.dataset import Dataset
-from tfcv.models.genelized_rcnn import FasterRCNN
+from tfcv.models.genelized_rcnn import GenelizedRCNN
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
 from tfcv.runners.faster_rcnn import FasterRCNNTrainer, FasterRCNNExporter
+
+from tfcv.config import update_cfg, setup_args, config as cfg
+from tfcv.utils.default_args import TRAIN_PARSER
 
 def setup():
     if cfg.xla:
@@ -40,6 +41,7 @@ def train_and_evaluate(export_to_savedmodel=False):
     cfg.replicas = strategy.num_replicas_in_sync
     cfg.global_train_batch_size = cfg.train_batch_size * cfg.replicas
     cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    cfg.freeze()
     logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
 
     train_data = dataset.train_fn(batch_size=cfg.global_train_batch_size)
@@ -114,6 +116,7 @@ def evaluate(eval_number):
         strategy = tf.distribute.OneDeviceStrategy('device:CPU:0')
     cfg.replicas = strategy.num_replicas_in_sync
     cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    cfg.freeze()
     logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
     eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size)
 
@@ -161,7 +164,7 @@ def export(savedmodel_dir, ckpt_number=None):
 
 def create_model():
     if cfg.meta_arch == 'faster_rcnn':
-        model = FasterRCNN()
+        model = GenelizedRCNN()
 
     return model
 
@@ -176,7 +179,7 @@ def initialize(checkpoint):
 
 def create_metrics():
 
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         metrics = [
                 tf.keras.metrics.Mean(name='rpn_score_loss'),
                 tf.keras.metrics.Mean(name='rpn_box_loss'),
@@ -197,3 +200,28 @@ def create_trainer(model, optimizer=None, metrics=[]):
 def create_exporter(model):
     if cfg.meta_arch == 'faster_rcnn':
         return FasterRCNNExporter(model, cfg)
+
+if __name__ == '__main__':
+    arguments = TRAIN_PARSER.parse_args()
+    config_file = arguments.config_file
+    config_file = os.path.abspath(config_file)
+    params = update_cfg(config_file)
+    cfg.from_dict(params)
+    setup_args(arguments, cfg)
+
+    model_dir = arguments.model_dir
+    model_dir = os.path.abspath(model_dir)
+    if not os.path.isdir(model_dir):
+        os.makedirs(model_dir)
+    config_path = os.path.join(model_dir, f'{arguments.mode}_config.yaml')
+    with open(config_path, 'w') as fp:
+        yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
+    num_gpus = arguments.num_gpus
+
+    if arguments.mode == 'train':
+        train_and_evaluate()
+    else:
+        assert arguments.eval_number
+        eval_number = ' '.join(str(s) for s in arguments.eval_number)
+        evaluate(eval_number)
+
