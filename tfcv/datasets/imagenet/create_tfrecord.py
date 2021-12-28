@@ -11,7 +11,7 @@ import tensorflow.compat.v1 as tf
 flags.DEFINE_string(
     'raw_data_dir', None, 'Directory path for raw Imagenet dataset. '
     'Should have train and validation subdirectories inside it.')
-    
+
 flags.DEFINE_string(
     'local_scratch_dir', None, 'Scratch directory path for temporary files.')
 
@@ -297,8 +297,12 @@ def convert_to_tf_records(
         os.path.join(raw_data_dir, VALIDATION_DIRECTORY, '*.JPEG')))
 
     # Get validation file synset labels from labels.txt
-    validation_synsets = tf.gfile.FastGFile(
-        os.path.join(raw_data_dir, LABELS_FILE), 'rb').read().splitlines()
+    try:
+        validation_synsets = tf.gfile.FastGFile(
+            os.path.join(raw_data_dir, LABELS_FILE), 'rb').read().splitlines()
+    except:
+        validation_synsets = tf.gfile.FastGFile(
+            (LABELS_FILE), 'rb').read().splitlines()
 
     # Create unique ids for all synsets
     labels = {v: k + 1 for k, v in enumerate(
