@@ -302,7 +302,7 @@ def convert_to_tf_records(
             os.path.join(raw_data_dir, LABELS_FILE), 'rb').read().splitlines()
     except:
         validation_synsets = tf.gfile.FastGFile(
-            (LABELS_FILE), 'rb').read().splitlines()
+            (os.path.join(os.path.dirname(__file__), LABELS_FILE)), 'rb').read().splitlines()
 
     # Create unique ids for all synsets
     labels = {v: k + 1 for k, v in enumerate(
