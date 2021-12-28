@@ -163,7 +163,7 @@ def export(savedmodel_dir, ckpt_number=None):
         )
 
 def create_model():
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         model = GenelizedRCNN()
 
     return model
@@ -194,11 +194,11 @@ def create_metrics():
     return metrics
 
 def create_trainer(model, optimizer=None, metrics=[]):
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         return FasterRCNNTrainer(cfg, model, optimizer, metrics)
 
 def create_exporter(model):
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         return FasterRCNNExporter(model, cfg)
 
 if __name__ == '__main__':
@@ -216,8 +216,7 @@ if __name__ == '__main__':
     config_path = os.path.join(model_dir, f'{arguments.mode}_config.yaml')
     with open(config_path, 'w') as fp:
         yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
-    num_gpus = arguments.num_gpus
-
+    cfg.model_dir = model_dir
     if arguments.mode == 'train':
         train_and_evaluate()
     else:

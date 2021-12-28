@@ -1,4 +1,4 @@
-from tfcv.classification.modeling.resnet import ResNet
+from tfcv.models.resnet import ResNet
 from absl import app
 
 def main(_):

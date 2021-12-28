@@ -10,7 +10,7 @@ ALL_PRETRAINED_WEIGHTS = {
         'sha256': '42352458018f796aa104c4729403c85d55ad257c56ee60cf138369cdc7b01d41',
         'urls': [
             'http://192.168.50.12:8080/pretrained_weights/resnet50_imagenet.npz',
-            'http://www.linstudio.work:6680/pretrained_weights/resnet50_imagenet.npz'
+            'http://139.155.0.247:6680/pretrained_weights/resnet50_imagenet.npz'#TODO use domain name
         ]
     }
 }

@@ -9,6 +9,7 @@ Residual networks (ResNets) were proposed in:
 import tensorflow as tf
 
 from tfcv.layers import SyncBatchNormalization
+from tfcv.models.utils import load_npz
 
 layers = tf.keras.layers
 
@@ -490,7 +491,7 @@ class ResNet(tf.keras.Model):
         else:
             super(ResNet, self).__init__(inputs=inputs, outputs=endpoints, name=f'resnet{model_id}', **kwargs)
             if pretrained:
-                self.load(RESNET_PRETRAINED[model_id][pretrained])
+                load_npz(self, RESNET_PRETRAINED[model_id][pretrained])
     def get_config(self):
         config_dict = {
                 'model_id': self._model_id,

@@ -18,7 +18,7 @@ from __future__ import absolute_import, division, print_function
 import tensorflow as tf
 
 from tfcv.ops.object_detection import balanced_positive_negative_sampler
-from tfcv.detection.ops import spatial_transform_ops
+from tfcv.ops import spatial_transform_ops
 from tfcv.detection.utils import box_utils
 
 _EPSILON = 1e-8
