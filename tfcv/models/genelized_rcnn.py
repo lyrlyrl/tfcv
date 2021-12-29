@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-from tfcv.config import config as cfg
-
 from tfcv.models.resnet import ResNet
 
 from tfcv.ops import anchors
@@ -11,35 +9,35 @@ from tfcv.ops import roi_ops, spatial_transform_ops, postprocess_ops, training_o
 
 class GenelizedRCNN(tf.keras.Model):
     
-    def __init__(self, name='genelized_rcnn', *args, **kwargs):
+    def __init__(self, config, name='genelized_rcnn', *args, **kwargs):
         super().__init__(name=name, *args, **kwargs)
-
+        self.cfg = config
         self.backbone = ResNet(
-            cfg.backbone.resnet_id,
+            self.cfg.backbone.resnet_id,
             input_shape=[832, 1344, 3],
-            freeze_at=0 if cfg.from_scratch else 2,
-            freeze_bn=False if cfg.from_scratch else True,
+            freeze_at=0 if self.cfg.from_scratch else 2,
+            freeze_bn=False if self.cfg.from_scratch else True,
             include_top=False)
 
         self.fpn = FPN(
             self.backbone.output,
-            min_level=cfg.min_level,
-            max_level=cfg.max_level)
+            min_level=self.cfg.min_level,
+            max_level=self.cfg.max_level)
 
         self.rpn_head = RPNHead(
             name="rpn_head",
-            num_anchors=len(cfg.anchor.aspect_ratios * cfg.anchor.num_scales),
+            num_anchors=len(self.cfg.anchor.aspect_ratios * self.cfg.anchor.num_scales),
             num_filters=256
         )
 
         self.box_head = BoxHead(
-            num_classes=cfg.num_classes,
-            mlp_head_dim=cfg.frcnn.mlp_head_dim,
+            num_classes=self.cfg.num_classes,
+            mlp_head_dim=self.cfg.frcnn.mlp_head_dim,
         )
-        if cfg.include_mask:
+        if self.cfg.include_mask:
             self.mask_head = MaskHead(
-                num_classes=cfg.num_classes,
-                mrcnn_resolution=cfg.mrcnn.resolution,
+                num_classes=self.cfg.num_classes,
+                mrcnn_resolution=self.cfg.mrcnn.resolution,
                 name="mask_head"
             )
         else:
@@ -57,9 +55,9 @@ class GenelizedRCNN(tf.keras.Model):
         batch_size, image_height, image_width, _ = images.get_shape().as_list()
         outputs = dict()
         if not anchor_boxes:
-            all_anchors = anchors.Anchors(cfg.min_level, cfg.max_level,
-                                    cfg.anchor.num_scales, cfg.anchor.aspect_ratios,
-                                    cfg.anchor.scale,
+            all_anchors = anchors.Anchors(self.cfg.min_level, self.cfg.max_level,
+                                    self.cfg.anchor.num_scales, self.cfg.anchor.aspect_ratios,
+                                    self.cfg.anchor.scale,
                                     (image_height, image_width))
             anchor_boxes = all_anchors.get_unpacked_boxes()
 
@@ -79,19 +77,19 @@ class GenelizedRCNN(tf.keras.Model):
 
         rpn_score_outputs, rpn_box_outputs = rpn_head_fn(
             features=fpn_feats,
-            min_level=cfg.min_level,
-            max_level=cfg.max_level
+            min_level=self.cfg.min_level,
+            max_level=self.cfg.max_level
         )
 
         if training:
-            rpn_pre_nms_topn = cfg.rpn.train.pre_nms_topn
-            rpn_post_nms_topn = cfg.rpn.train.post_nms_topn
-            rpn_nms_threshold = cfg.rpn.train.nms_threshold
+            rpn_pre_nms_topn = self.cfg.rpn.train.pre_nms_topn
+            rpn_post_nms_topn = self.cfg.rpn.train.post_nms_topn
+            rpn_nms_threshold = self.cfg.rpn.train.nms_threshold
 
         else:
-            rpn_pre_nms_topn = cfg.rpn.test.pre_nms_topn
-            rpn_post_nms_topn = cfg.rpn.test.post_nms_topn
-            rpn_nms_threshold = cfg.rpn.test.nms_thresh
+            rpn_pre_nms_topn = self.cfg.rpn.test.pre_nms_topn
+            rpn_post_nms_topn = self.cfg.rpn.test.post_nms_topn
+            rpn_nms_threshold = self.cfg.rpn.test.nms_thresh
         rpn_box_scores, rpn_box_rois = roi_ops.multilevel_propose_rois(
             scores_outputs=rpn_score_outputs,
             box_outputs=rpn_box_outputs,
@@ -100,7 +98,7 @@ class GenelizedRCNN(tf.keras.Model):
             rpn_pre_nms_topn=rpn_pre_nms_topn,
             rpn_post_nms_topn=rpn_post_nms_topn,
             rpn_nms_threshold=rpn_nms_threshold,
-            rpn_min_size=cfg.rpn.min_size,
+            rpn_min_size=self.cfg.rpn.min_size,
             bbox_reg_weights=None,
         )
 
@@ -115,11 +113,11 @@ class GenelizedRCNN(tf.keras.Model):
                 rpn_box_rois,
                 gt_boxes,
                 gt_classes,
-                batch_size_per_im=cfg.proposal.batch_size_per_im,
-                fg_fraction=cfg.proposal.fg_fraction,
-                fg_thresh=cfg.proposal.fg_thresh,
-                bg_thresh_hi=cfg.proposal.bg_thresh_hi,
-                bg_thresh_lo=cfg.proposal.bg_thresh_lo
+                batch_size_per_im=self.cfg.proposal.batch_size_per_im,
+                fg_fraction=self.cfg.proposal.fg_fraction,
+                fg_thresh=self.cfg.proposal.fg_thresh,
+                bg_thresh_hi=self.cfg.proposal.bg_thresh_hi,
+                bg_thresh_lo=self.cfg.proposal.bg_thresh_lo
             )
 
         # Performs multi-level RoIAlign.
@@ -137,11 +135,11 @@ class GenelizedRCNN(tf.keras.Model):
                 box_outputs=box_outputs,
                 anchor_boxes=rpn_box_rois,
                 image_info=image_info,
-                pre_nms_num_detections=cfg.rpn.test.post_nms_topn,
-                post_nms_num_detections=cfg.frcnn.test.detections_per_image,
-                nms_threshold=cfg.frcnn.test.nms,
-                nms_score_threshold=cfg.frcnn.test.score,
-                bbox_reg_weights=cfg.frcnn.bbox_reg_weights
+                pre_nms_num_detections=self.cfg.rpn.test.post_nms_topn,
+                post_nms_num_detections=self.cfg.frcnn.test.detections_per_image,
+                nms_threshold=self.cfg.frcnn.test.nms,
+                nms_score_threshold=self.cfg.frcnn.test.score,
+                bbox_reg_weights=self.cfg.frcnn.bbox_reg_weights
             )
 
             outputs.update({
@@ -156,7 +154,7 @@ class GenelizedRCNN(tf.keras.Model):
                 boxes=rpn_box_rois,
                 gt_boxes=box_targets,
                 gt_labels=class_targets,
-                bbox_reg_weights=cfg.frcnn.bbox_reg_weights
+                bbox_reg_weights=self.cfg.frcnn.bbox_reg_weights
             )
 
             outputs.update({
@@ -170,7 +168,7 @@ class GenelizedRCNN(tf.keras.Model):
             })
 
         # Faster-RCNN mode.
-        if not cfg.include_mask:
+        if not self.cfg.include_mask:
             return outputs
 
         # Mask sampling
@@ -185,7 +183,7 @@ class GenelizedRCNN(tf.keras.Model):
                 box_targets=box_targets,
                 boxes=rpn_box_rois,
                 proposal_to_label_map=proposal_to_label_map,
-                max_num_fg=int(cfg.proposal.batch_size_per_im * cfg.proposal.fg_fraction)
+                max_num_fg=int(self.cfg.proposal.batch_size_per_im * self.cfg.proposal.fg_fraction)
             )
 
             class_indices = tf.cast(selected_class_targets, dtype=tf.int32)
@@ -208,7 +206,7 @@ class GenelizedRCNN(tf.keras.Model):
                 fg_proposal_to_label_map=proposal_to_label_map,
                 fg_box_targets=selected_box_targets,
                 mask_gt_labels=cropped_gt_masks,
-                output_size=cfg.mrcnn.resolution
+                output_size=self.cfg.mrcnn.resolution
             )
 
             outputs.update({

@@ -136,7 +136,7 @@ def denormalize_boxes(boxes, image_shape):
         return denormalized_boxes
 
 
-def clip_boxes(boxes, image_shape):
+def clip_boxes(boxes, height, width=None):
     """Clips boxes to image boundaries.
 
     Args:
@@ -158,17 +158,19 @@ def clip_boxes(boxes, image_shape):
             'boxes.shape[-1] is {:d}, but must be 4.'.format(boxes.shape[-1]))
 
     with tf.name_scope('clip_boxes'):
-        if isinstance(image_shape, (list, tuple)):
-            height, width = image_shape
-        else:
-            image_shape = tf.cast(image_shape, dtype=boxes.dtype)
-            height = image_shape[..., 0:1]
-            width = image_shape[..., 1:2]
+        if width == None:
+            if isinstance(height, (list, tuple)):
+                height, width = height
+            else:
+                image_shape = tf.cast(height, dtype=boxes.dtype)
+                height = image_shape[..., 0:1]
+                width = image_shape[..., 1:2]
 
-        ymin = boxes[..., 0:1]
-        xmin = boxes[..., 1:2]
-        ymax = boxes[..., 2:3]
-        xmax = boxes[..., 3:4]
+        # ymin = boxes[..., 0:1]
+        # xmin = boxes[..., 1:2]
+        # ymax = boxes[..., 2:3]
+        # xmax = boxes[..., 3:4]
+        ymin, xmin, ymax, xmax = tf.split(boxes, 4, axis=-1)
 
         clipped_ymin = tf.maximum(tf.minimum(ymin, height - 1.0), 0.0)
         clipped_ymax = tf.maximum(tf.minimum(ymax, height - 1.0), 0.0)
@@ -236,19 +238,21 @@ def encode_boxes(boxes, anchors, weights=None):
 
     with tf.name_scope('encode_boxes'):
         boxes = tf.cast(boxes, dtype=anchors.dtype)
-        ymin = boxes[..., 0:1]
-        xmin = boxes[..., 1:2]
-        ymax = boxes[..., 2:3]
-        xmax = boxes[..., 3:4]
+        ymin, xmin, ymax, xmax = tf.split(boxes, 4, axis=-1)
+        # ymin = boxes[..., 0:1]
+        # xmin = boxes[..., 1:2]
+        # ymax = boxes[..., 2:3]
+        # xmax = boxes[..., 3:4]
         box_h = ymax - ymin + 1.0
         box_w = xmax - xmin + 1.0
         box_yc = ymin + 0.5 * box_h
         box_xc = xmin + 0.5 * box_w
 
-        anchor_ymin = anchors[..., 0:1]
-        anchor_xmin = anchors[..., 1:2]
-        anchor_ymax = anchors[..., 2:3]
-        anchor_xmax = anchors[..., 3:4]
+        anchor_ymin, anchor_xmin, anchor_ymax, anchor_xmax = tf.split(anchors, 4, axis=-1)
+        # anchor_ymin = anchors[..., 0:1]
+        # anchor_xmin = anchors[..., 1:2]
+        # anchor_ymax = anchors[..., 2:3]
+        # anchor_xmax = anchors[..., 3:4]
         anchor_h = anchor_ymax - anchor_ymin + 1.0
         anchor_w = anchor_xmax - anchor_xmin + 1.0
         anchor_yc = anchor_ymin + 0.5 * anchor_h
@@ -291,10 +295,11 @@ def decode_boxes(encoded_boxes, anchors, weights=None):
 
     with tf.name_scope('decode_boxes'):
         encoded_boxes = tf.cast(encoded_boxes, dtype=anchors.dtype)
-        dy = encoded_boxes[..., 0:1]
-        dx = encoded_boxes[..., 1:2]
-        dh = encoded_boxes[..., 2:3]
-        dw = encoded_boxes[..., 3:4]
+        dy, dx, dh, dw = tf.split(encoded_boxes, 4, axis=-1)
+        # dy = encoded_boxes[..., 0:1]
+        # dx = encoded_boxes[..., 1:2]
+        # dh = encoded_boxes[..., 2:3]
+        # dw = encoded_boxes[..., 3:4]
         if weights:
             dy /= weights[0]
             dx /= weights[1]
@@ -303,10 +308,11 @@ def decode_boxes(encoded_boxes, anchors, weights=None):
         dh = tf.minimum(dh, BBOX_XFORM_CLIP)
         dw = tf.minimum(dw, BBOX_XFORM_CLIP)
 
-        anchor_ymin = anchors[..., 0:1]
-        anchor_xmin = anchors[..., 1:2]
-        anchor_ymax = anchors[..., 2:3]
-        anchor_xmax = anchors[..., 3:4]
+        anchor_ymin, anchor_xmin, anchor_ymax, anchor_xmax = tf.split(anchors, 4, axis=-1)
+        # anchor_ymin = anchors[..., 0:1]
+        # anchor_xmin = anchors[..., 1:2]
+        # anchor_ymax = anchors[..., 2:3]
+        # anchor_xmax = anchors[..., 3:4]
         anchor_h = anchor_ymax - anchor_ymin + 1.0
         anchor_w = anchor_xmax - anchor_xmin + 1.0
         anchor_yc = anchor_ymin + 0.5 * anchor_h
@@ -359,13 +365,15 @@ def filter_boxes(boxes, scores, image_shape, min_size_threshold):
             height, width = image_shape
         else:
             image_shape = tf.cast(image_shape, dtype=boxes.dtype)
-            height = image_shape[..., 0]
-            width = image_shape[..., 1]
+            height, width = tf.split(image_shape, 2, axis=-1)
+            # height = image_shape[..., 0]
+            # width = image_shape[..., 1]
 
-        ymin = boxes[..., 0]
-        xmin = boxes[..., 1]
-        ymax = boxes[..., 2]
-        xmax = boxes[..., 3]
+        ymin, xmin, ymax, xmax = tf.split(boxes, 4, axis=-1)
+        # ymin = boxes[..., 0]
+        # xmin = boxes[..., 1]
+        # ymax = boxes[..., 2]
+        # xmax = boxes[..., 3]
 
         h = ymax - ymin + 1.0
         w = xmax - xmin + 1.0

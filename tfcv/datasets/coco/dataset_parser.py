@@ -24,7 +24,7 @@ import tensorflow as tf
 from tfcv.ops import anchors
 from tfcv.ops.object_detection import tf_example_decoder
 from tfcv.ops import preprocess_ops
-from tfcv.detection.utils import coco_utils
+from tfcv.evaluate import coco_utils
 
 MAX_NUM_INSTANCES = 100
 MAX_NUM_VERTICES_PER_INSTANCE = 1500

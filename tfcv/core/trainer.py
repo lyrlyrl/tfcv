@@ -1,10 +1,12 @@
 import math
 import abc
 import tensorflow as tf
+import numpy as np
 import logging
 
 import time
 
+from tfcv.exception import NanTrainLoss
 from tfcv.utils.progress import get_tqdm
 
 __all__ = ['Trainer', 'merge_replica_results']
@@ -22,7 +24,8 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             params,
             model: tf.keras.Model,
             optimizer=None,
-            metrics=[]):
+            metrics=[],
+            hooks=None):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
 
@@ -36,6 +39,10 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         self._validation_op = None
         
         self._train_timer = 0
+
+        self.hooks = hooks
+        if self.hooks:
+            self.hooks.set_trainer(self)
 
         self._logger = logging.getLogger('trainer')
 
@@ -53,7 +60,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         if not self._validation_op:
             def dist_validation_op(dist_inputs):
-                per_replica_predictions = strategy.run(self.validation_step, args=(dist_inputs, ))
+                per_replica_predictions = strategy.run(self.validation_forward, args=(dist_inputs, ))
                 predictions = merge_replica_results(strategy, per_replica_predictions)
                 return predictions
             self._validation_op = tf.function(dist_validation_op)
@@ -65,23 +72,32 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
 
         for loop_number in range(num_loops):
-            steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step            
+            steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
+            self.hooks.before_epoch(steps_to_run)            
             self.train_loop_begin()
-            try:
-                with tf.experimental.async_scope():                    
-                    for _ in get_tqdm(
-                        range(steps_to_run),
-                        desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
-                        self._train_op(train_iterator)
-            except tf.errors.OutOfRangeError:
-                tf.experimental.async_clear_error()
-            self.train_loop_end()
+                 
+            for _ in get_tqdm(
+                    range(steps_to_run),
+                    desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
+                outputs = self._train_op(train_iterator)
+                self.hooks.after_train_batch(outputs)
+
+            train_throuput, train_loss, metrics = self.train_loop_end()
+
+            if np.isnan(train_loss):
+                raise NanTrainLoss((epoch_number, current_step) if epoch_number else current_step, metrics)
+
+            self.hooks.after_epoch(train_throuput, train_loss, metrics)
             current_step += steps_to_run
+
+    def train_forward(self, inputs):
+        model_outputs = self._model(inputs, training=True)
+        raw_loss = tf.math.reduce_sum(self._model.losses)
+        return (raw_loss, None, model_outputs) # total_loss, to_update, to_output
 
     def train_step(self, inputs):
         with tf.GradientTape() as tape:
-            model_outputs = self._model(inputs[0], training=True)
-            raw_loss = tf.math.reduce_sum(self._model.losses)
+            raw_loss, to_update, to_output = self.train_forward(inputs)
             if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
                 loss = self._optimizer.get_scaled_loss(raw_loss)
             else:
@@ -92,8 +108,11 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             grads = self._optimizer.get_unscaled_gradients(grads)
         self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
         self._train_loss.update_state(raw_loss)
+        for metric in self._metrics:
+            metric.update_state(to_update[metric.name])
+        return to_output
 
-    def validation_step(self, inputs):
+    def validation_forward(self, inputs):
         model_outputs = self._model(inputs, training=False)
         return model_outputs
     
@@ -105,23 +124,19 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         
         for metric in self._model.metrics:
             metric.reset_state()
-        
+
         self._train_timer = time.time()
     
     def train_loop_end(self):
         times = time.time() - self._train_timer
 
         throuput = self._params.global_train_batch_size * self._params.solver.steps_per_loop / times
-
-        logging.info(f'train_throuput: {throuput}')
-
-        logging.info(f'train_loss: {self._train_loss.result().numpy()}')
-
-        for metric in self._metrics:
-            logging.info(f'{metric.name}: {metric.result().numpy()}')
+        train_loss = self._train_loss.result().numpy()
         
-        for metric in self._model.metrics:
-            logging.info(f'{metric.name}: {metric.result().numpy()}')
+        metrics = {metric.name: metric.result().numpy() for metric in self._metrics}
+        metrics.update({metric.name: metric.result().numpy() for metric in self._model._metrics})
+
+        return throuput, train_loss, metrics
     
     def eval_begin(self, *args, **kwargs):
         pass

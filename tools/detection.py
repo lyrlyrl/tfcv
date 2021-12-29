@@ -1,45 +1,40 @@
 import logging
 import os
+import math
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework.errors_impl import NotFoundError
 import yaml
 
-from tfcv.config import config as cfg
-
+import tfcv
+from tfcv.hooks.base import Hook, HookList
+from tfcv.hooks.test_hook import TestHook
 from tfcv.datasets.coco.dataset import Dataset
-from tfcv.models.genelized_rcnn import FasterRCNN
+from tfcv.models.genelized_rcnn import GenelizedRCNN
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
 from tfcv.runners.faster_rcnn import FasterRCNNTrainer, FasterRCNNExporter
 
+from tfcv.config import update_cfg, setup_args, config as cfg
+from tfcv.utils.default_args import TRAIN_PARSER
+
 def setup():
-    if cfg.xla:
-        os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit'
-        logging.info('XLA is activated')
+    tfcv.set_xla(cfg)
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 
-    if cfg.amp:
-        policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16", loss_scale="dynamic")
-        tf.keras.mixed_precision.experimental.set_policy(policy)
-        logging.info('AMP is activated')
+    tfcv.set_amp(cfg)
 
 def train_and_evaluate(export_to_savedmodel=False):
     setup()
     dataset = Dataset()
-    if cfg.num_gpus > 1:
-        strategy = tf.distribute.MirroredStrategy(
-            devices=["device:GPU:%d" % i for i in range(cfg.num_gpus)]
-        )
-    elif cfg.num_gpus == 1:
-        strategy = tf.distribute.OneDeviceStrategy('device:GPU:0')
-    else:
-        strategy = tf.distribute.OneDeviceStrategy('device:CPU:0')
+    strategy = tfcv.get_strategy(cfg)
+
     cfg.replicas = strategy.num_replicas_in_sync
     cfg.global_train_batch_size = cfg.train_batch_size * cfg.replicas
     cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    cfg.freeze()
     logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
 
     train_data = dataset.train_fn(batch_size=cfg.global_train_batch_size)
@@ -70,14 +65,17 @@ def train_and_evaluate(export_to_savedmodel=False):
         initialize(checkpoint)
 
         metrics = create_metrics()
-        trainer = create_trainer(model, optimizer, metrics)
+        hooks = HookList(hooks=[
+            TestHook('test')
+        ])
+        trainer = create_trainer(model, optimizer, metrics, hooks)
 
         dist_train_dataset = strategy.experimental_distribute_dataset(train_data)
         dist_eval_dataset = strategy.experimental_distribute_dataset(eval_data)
         trainer.compile()
         train_iter = iter(dist_train_dataset)
 
-        total_steps = int(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
+        total_steps = math.ceil(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
         steps_per_epoch = int(total_steps * cfg.solver.evaluate_interval / cfg.solver.epochs)
         current_step = optimizer.iterations.numpy()
 
@@ -90,10 +88,13 @@ def train_and_evaluate(export_to_savedmodel=False):
             if i * steps_per_epoch < current_step:
                 continue
             step_to_train = min(steps_per_epoch, total_steps - i * steps_per_epoch)
-            trainer.train(step_to_train, train_iter, epoch_number=i+cfg.solver.evaluate_interval)
+            try:
+                trainer.train(step_to_train, train_iter, epoch_number=i+cfg.solver.evaluate_interval)
+            except tfcv.NanTrainLoss as e:
+                logging.warn(e)
             checkpoint.save(ckpt_path)
             eval_result = trainer.evaluate(dist_eval_dataset)
-            eval_result['save_cound'] = checkpoint.save_count.numpy().tolist()
+            eval_result['save_count'] = checkpoint.save_count.numpy().tolist()
             eval_results[str(i)] = eval_result
             with open(eval_results_dir, 'w') as fp:
                 yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
@@ -114,6 +115,7 @@ def evaluate(eval_number):
         strategy = tf.distribute.OneDeviceStrategy('device:CPU:0')
     cfg.replicas = strategy.num_replicas_in_sync
     cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    cfg.freeze()
     logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
     eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size)
 
@@ -160,8 +162,8 @@ def export(savedmodel_dir, ckpt_number=None):
         )
 
 def create_model():
-    if cfg.meta_arch == 'faster_rcnn':
-        model = FasterRCNN()
+    if cfg.meta_arch == 'genelized_rcnn':
+        model = GenelizedRCNN(cfg)
 
     return model
 
@@ -176,7 +178,7 @@ def initialize(checkpoint):
 
 def create_metrics():
 
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         metrics = [
                 tf.keras.metrics.Mean(name='rpn_score_loss'),
                 tf.keras.metrics.Mean(name='rpn_box_loss'),
@@ -190,10 +192,46 @@ def create_metrics():
 
     return metrics
 
-def create_trainer(model, optimizer=None, metrics=[]):
-    if cfg.meta_arch == 'faster_rcnn':
-        return FasterRCNNTrainer(cfg, model, optimizer, metrics)
+def create_trainer(model, optimizer=None, metrics=[], hooks=[]):
+    if cfg.meta_arch == 'genelized_rcnn':
+        return FasterRCNNTrainer(cfg, model, optimizer, metrics, hooks)
 
 def create_exporter(model):
-    if cfg.meta_arch == 'faster_rcnn':
+    if cfg.meta_arch == 'genelized_rcnn':
         return FasterRCNNExporter(model, cfg)
+
+if __name__ == '__main__':
+    arguments = TRAIN_PARSER.parse_args()
+
+    # setup logging
+    logging.basicConfig(
+        # level=logging.DEBUG if params.verbose else logging.INFO,
+        level=logging.INFO,
+        format='{asctime} {levelname:.1} {name:15} {message}',
+        style='{'
+    )
+
+    # remove custom tf handler that logs to stderr
+    logging.getLogger('tensorflow').setLevel(logging.WARN)
+    logging.getLogger('tensorflow').handlers.clear()
+
+    config_file = arguments.config_file
+    config_file = os.path.abspath(config_file)
+    params = update_cfg(config_file)
+    cfg.from_dict(params)
+    setup_args(arguments, cfg)
+
+    model_dir = arguments.model_dir
+    model_dir = os.path.abspath(model_dir)
+    if not os.path.isdir(model_dir):
+        os.makedirs(model_dir)
+    config_path = os.path.join(model_dir, f'{arguments.mode}_config.yaml')
+    with open(config_path, 'w') as fp:
+        yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
+    cfg.model_dir = model_dir
+    if arguments.mode == 'train':
+        train_and_evaluate()
+    else:
+        assert arguments.eval_number
+        eval_number = ' '.join(str(s) for s in arguments.eval_number)
+        evaluate(eval_number)
