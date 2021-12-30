@@ -1,6 +1,11 @@
 import logging
+import os
 
 import tensorflow as tf
+import numpy as np
+import yaml
+
+from tfcv.exception import NanTrainLoss
 from tfcv.core.trainer import Trainer
 
 __all__ = ['HookList', 'Hook']
@@ -22,9 +27,9 @@ class HookList(object):
         for cb in self.hooks:
             cb.before_train(train_steps)
             
-    def before_epoch(self, steps):
+    def before_epoch(self, steps, current_step, epoch_number=None):
         for cb in self.hooks:
-            cb.before_epoch(steps)
+            cb.before_epoch(steps, current_step, epoch_number)
 
     def after_epoch(self, train_throuput, train_loss, metrics):
         self._logger.info(f'train_throuput: {train_throuput}')
@@ -50,6 +55,10 @@ class HookList(object):
     def after_run(self):
         for cb in self.hooks:
             cb.after_run()
+    
+    def after_evaluate(self, outputs):
+        for cb in self.hooks:
+            cb.after_evaluate(outputs)
 
 class Hook(object):
     # trackable = []
@@ -68,7 +77,7 @@ class Hook(object):
         self.trainer=trainer
     def before_train(self, train_steps):
         pass
-    def before_epoch(self, steps):
+    def before_epoch(self, steps, current_step, epoch_number):
         pass
     def after_epoch(self, train_throuput, train_loss, metrics):
         pass
@@ -80,6 +89,44 @@ class Hook(object):
         pass
     def after_run(self):
         pass
+    def after_evaluate(self, outputs):
+        pass
 
-                
+class TrainCheckpoint(Hook):
+
+    def __init__(
+            self,
+            checkpoint: tf.train.Checkpoint,
+            model_dir,
+            ckpt_subdir,
+            ckpt_name='ckpt',
+            best_metric=None,
+            best_subdir='best',
+            initialize_fn=None):
+        super().__init__(name='best_model')
+        self._trained = False
+        self._best_metric = best_metric
+        self._ckpt_path = os.path.join(model_dir, ckpt_subdir, ckpt_name)
+        self._best_dir = os.path.join(model_dir, best_subdir)
+        self._best_result_dir = os.path.join(self._best_dir, 'best.yaml')
+        if not os.path.isdir(self._best_dir):
+            os.makedirs(self._best_dir)
+            self.best_results={}
+        else:
+            if os.path.isfile(self._best_result_dir):
+                with open(self._best_result_dir, 'r') as fp:
+                    self.best_results = yaml.load(fp, Loader=yaml.CLoader)
+        self._initialize_fn = initialize_fn
+
+    def set_trainer(self, trainer):
+        super().set_trainer(trainer)
+        self._checkpoint = tf.train.Checkpoint(model=self.trainer.model, optimizer=self.trainer.optimizer)
+
+    def before_train(self, *args, **kwargs):
+        self._trained = True
+
+    def after_evaluate(self, outputs):
+        if self._trained:
+            pass
+    
 

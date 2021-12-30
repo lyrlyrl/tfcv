@@ -46,6 +46,19 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         self._logger = logging.getLogger('trainer')
 
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def optimizer(self):
+        return self._optimizer
+        
+    @property
+    def train_loss(self):
+        """Accesses the training loss metric object."""
+        return self._train_loss
+
     def compile(self, train=True):
         strategy = tf.distribute.get_strategy()
         
@@ -73,7 +86,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         for loop_number in range(num_loops):
             steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
-            self.hooks.before_epoch(steps_to_run)            
+            self.hooks.before_epoch(steps_to_run, current_step, epoch_number)            
             self.train_loop_begin()
                  
             for _ in get_tqdm(

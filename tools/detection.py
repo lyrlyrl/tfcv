@@ -7,8 +7,7 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 import yaml
 
 import tfcv
-from tfcv.hooks.base import Hook, HookList
-from tfcv.hooks.test_hook import TestHook
+from tfcv.hooks import HookList, TrainCheckpoint
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.models.genelized_rcnn import GenelizedRCNN
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
@@ -66,7 +65,13 @@ def train_and_evaluate(export_to_savedmodel=False):
 
         metrics = create_metrics()
         hooks = HookList(hooks=[
-            TestHook('test')
+            TrainCheckpoint(
+                checkpoint,
+                cfg.model_dir,
+                cfg.checkpoint.subdir,
+                cfg.checkpoint.name,
+                best_metric='mAP'
+            )
         ])
         trainer = create_trainer(model, optimizer, metrics, hooks)
 
@@ -95,6 +100,7 @@ def train_and_evaluate(export_to_savedmodel=False):
             checkpoint.save(ckpt_path)
             eval_result = trainer.evaluate(dist_eval_dataset)
             eval_result['save_count'] = checkpoint.save_count.numpy().tolist()
+
             eval_results[str(i)] = eval_result
             with open(eval_results_dir, 'w') as fp:
                 yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
