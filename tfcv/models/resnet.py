@@ -483,8 +483,11 @@ class ResNet(tf.keras.Model):
             endpoints[str(i + 2)] = x
 
         if include_top:
-            raise
-            super(ResNet, self).__init__(inputs=inputs, outputs=endpoints, name=f'resnet{model_id}', **kwargs)
+            # x = endpoints[str(i + 2)]
+            x = tf.keras.layers.GlobalAveragePooling2D()(x)
+            x = tf.keras.layers.Dense(num_classes, kernel_initializer=kernel_initializer)(x)
+
+            super(ResNet, self).__init__(inputs=inputs, outputs=x, name=f'resnet{model_id}', **kwargs)
             if pretrained:
                 assert num_classes==1001, 'imagenet pretrained classification model must be 1001 classes'
                 self.load(RESNET_PRETRAINED[model_id][pretrained])
