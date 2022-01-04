@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.python.ops.variables import Variable
 
 from tfcv.layers.base import Layer
-
+from tfcv.layers.utils import need_build
 
 class BatchNormalization(Layer):
     default_name = 'bn'
@@ -36,23 +36,23 @@ class BatchNormalization(Layer):
     
     def _build(self, input_shape):
         ndims = len(input_shape)
+        assert ndims in [2, 4]
         
         if self.axis < 0:
             self.axis = ndims + self.axis
+        assert self.axis in [1, 3]
 
         if self.axis > ndims:
             raise ValueError(
                     f'Invalid axis. Expected 0 <= axis < inputs.rank (with '
                     f'inputs.rank={ndims}). Received: layer.axis={self.axis}')
         
-        if self.axis == 1 and ndims == 4:
-            self.data_format = 'NCHW'
-        elif self.axis == 3 and ndims == 4:
-            self.data_format = 'NHWC'
+        if (self.axis == 1 or self.axis == 3) and ndims == 4:
+            self.fused=True
         else:
             self.fused=False
 
-        param_shape = (input_shape[self.axis])
+        param_shape = (input_shape[self.axis],)
 
         with tf.name_scope(self.name):
             if self.scale:
@@ -144,28 +144,14 @@ class BatchNormalization(Layer):
             self.moving_mean.assign(mean)
             self.moving_variance.assign(variance)
         return output
-            
-
+    
+    @need_build
     def call(self, inputs, training=None):
-        if self.fused:
+        if self.fused and training and (self.sync_statistics == None):
             outputs = self._fused_batch_norm(inputs, training=training)
             return outputs
         else:
             input_shape = inputs.shape
             ndims = len(input_shape)
 
-            reduction_axes = [i for i in range(ndims) if i != self.axis]
-
-            broadcast_shape = [1] * ndims
-            broadcast_shape[self.axis] = input_shape.dims[self.axis].value
-            def _broadcast(v):
-                if (v is not None and len(v.shape) != ndims and
-                    reduction_axes != list(range(ndims - 1))):
-                    return tf.reshape(v, broadcast_shape)
-                return v
-            scale, offset = _broadcast(self.gamma), _broadcast(self.beta)
-            if training:
-                mean, variance = self._moments(
-                    tf.cast(inputs, self._param_dtype),
-                    reduction_axes,
-                    keep_dims=keep_dims)
+            red_axis = [0] if ndims == 2 else ([0, 2, 3] if self.axis == 1 else [0, 1, 2])
