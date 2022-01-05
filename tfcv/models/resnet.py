@@ -68,7 +68,7 @@ RESNET_SPECS = {
 
 RESNET_PRETRAINED = {
     50: {
-        'imagenet': 'resnet50_imagenet'
+        'imagenet': 'resnet50_imagenet',
     }
 }
 
@@ -120,6 +120,7 @@ class Conv2DBlock(tf.keras.layers.Layer):
                 momentum = norm_momentum,
                 epsilon = norm_epsilon,
                 trainable = not freeze_bn,
+                fused=False,
                 name='bn')
         else:
             self._bn = None
@@ -420,7 +421,7 @@ class ResNet(tf.keras.Model):
         kernel_initializer=tf.keras.initializers.VarianceScaling(
             scale=2.0, distribution='truncated_normal'),
         include_top=True,
-        num_classes=1001,
+        num_classes=1000,
         pretrained: str = 'imagenet',
         **kwargs):
         """ResNet initialization function.
@@ -488,13 +489,14 @@ class ResNet(tf.keras.Model):
             x = tf.keras.layers.Dense(num_classes, kernel_initializer=kernel_initializer)(x)
 
             super(ResNet, self).__init__(inputs=inputs, outputs=x, name=f'resnet{model_id}', **kwargs)
-            if pretrained:
-                assert num_classes==1001, 'imagenet pretrained classification model must be 1001 classes'
-                self.load(RESNET_PRETRAINED[model_id][pretrained])
+            # if pretrained:
+            #     assert num_classes==1001, 'imagenet pretrained classification model must be 1001 classes'
+            #     self.load(RESNET_PRETRAINED[model_id][pretrained])
         else:
             super(ResNet, self).__init__(inputs=inputs, outputs=endpoints, name=f'resnet{model_id}', **kwargs)
             if pretrained:
                 load_npz(self, RESNET_PRETRAINED[model_id][pretrained])
+
     def get_config(self):
         config_dict = {
                 'model_id': self._model_id,

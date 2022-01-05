@@ -7,3 +7,6 @@ class NanTrainLoss(Exception):
         message = pprint.pformat(metrics)
         prefix = f'detect nan loss at {period} with metrics below:\n'
         super().__init__(message=prefix+message)
+
+class LayerNotBuilt(Exception):
+    pass

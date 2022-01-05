@@ -1,0 +1,267 @@
+resnet50/group0/block0/bottleneck_1/bn/beta:0 (64,) True
+resnet50/group0/block0/bottleneck_1/bn/gamma:0 (64,) True
+resnet50/group0/block0/bottleneck_1/bn/moving_mean:0 (64,) False
+resnet50/group0/block0/bottleneck_1/bn/moving_variance:0 (64,) False
+resnet50/group0/block0/bottleneck_1/conv2d/kernel:0 (1, 1, 64, 64) True
+resnet50/group0/block0/bottleneck_2/bn/beta:0 (64,) True
+resnet50/group0/block0/bottleneck_2/bn/gamma:0 (64,) True
+resnet50/group0/block0/bottleneck_2/bn/moving_mean:0 (64,) False
+resnet50/group0/block0/bottleneck_2/bn/moving_variance:0 (64,) False
+resnet50/group0/block0/bottleneck_2/conv2d/kernel:0 (3, 3, 64, 64) True
+resnet50/group0/block0/bottleneck_3/bn/beta:0 (256,) True
+resnet50/group0/block0/bottleneck_3/bn/gamma:0 (256,) True
+resnet50/group0/block0/bottleneck_3/bn/moving_mean:0 (256,) False
+resnet50/group0/block0/bottleneck_3/bn/moving_variance:0 (256,) False
+resnet50/group0/block0/bottleneck_3/conv2d/kernel:0 (1, 1, 64, 256) True
+resnet50/group0/block0/shortcut/bn/beta:0 (256,) True
+resnet50/group0/block0/shortcut/bn/gamma:0 (256,) True
+resnet50/group0/block0/shortcut/bn/moving_mean:0 (256,) False
+resnet50/group0/block0/shortcut/bn/moving_variance:0 (256,) False
+resnet50/group0/block0/shortcut/conv2d/kernel:0 (1, 1, 64, 256) True
+resnet50/group0/block1/bottleneck_1/bn/beta:0 (64,) True
+resnet50/group0/block1/bottleneck_1/bn/gamma:0 (64,) True
+resnet50/group0/block1/bottleneck_1/bn/moving_mean:0 (64,) False
+resnet50/group0/block1/bottleneck_1/bn/moving_variance:0 (64,) False
+resnet50/group0/block1/bottleneck_1/conv2d/kernel:0 (1, 1, 256, 64) True
+resnet50/group0/block1/bottleneck_2/bn/beta:0 (64,) True
+resnet50/group0/block1/bottleneck_2/bn/gamma:0 (64,) True
+resnet50/group0/block1/bottleneck_2/bn/moving_mean:0 (64,) False
+resnet50/group0/block1/bottleneck_2/bn/moving_variance:0 (64,) False
+resnet50/group0/block1/bottleneck_2/conv2d/kernel:0 (3, 3, 64, 64) True
+resnet50/group0/block1/bottleneck_3/bn/beta:0 (256,) True
+resnet50/group0/block1/bottleneck_3/bn/gamma:0 (256,) True
+resnet50/group0/block1/bottleneck_3/bn/moving_mean:0 (256,) False
+resnet50/group0/block1/bottleneck_3/bn/moving_variance:0 (256,) False
+resnet50/group0/block1/bottleneck_3/conv2d/kernel:0 (1, 1, 64, 256) True
+resnet50/group0/block2/bottleneck_1/bn/beta:0 (64,) True
+resnet50/group0/block2/bottleneck_1/bn/gamma:0 (64,) True
+resnet50/group0/block2/bottleneck_1/bn/moving_mean:0 (64,) False
+resnet50/group0/block2/bottleneck_1/bn/moving_variance:0 (64,) False
+resnet50/group0/block2/bottleneck_1/conv2d/kernel:0 (1, 1, 256, 64) True
+resnet50/group0/block2/bottleneck_2/bn/beta:0 (64,) True
+resnet50/group0/block2/bottleneck_2/bn/gamma:0 (64,) True
+resnet50/group0/block2/bottleneck_2/bn/moving_mean:0 (64,) False
+resnet50/group0/block2/bottleneck_2/bn/moving_variance:0 (64,) False
+resnet50/group0/block2/bottleneck_2/conv2d/kernel:0 (3, 3, 64, 64) True
+resnet50/group0/block2/bottleneck_3/bn/beta:0 (256,) True
+resnet50/group0/block2/bottleneck_3/bn/gamma:0 (256,) True
+resnet50/group0/block2/bottleneck_3/bn/moving_mean:0 (256,) False
+resnet50/group0/block2/bottleneck_3/bn/moving_variance:0 (256,) False
+resnet50/group0/block2/bottleneck_3/conv2d/kernel:0 (1, 1, 64, 256) True
+resnet50/group1/block0/bottleneck_1/bn/beta:0 (128,) True
+resnet50/group1/block0/bottleneck_1/bn/gamma:0 (128,) True
+resnet50/group1/block0/bottleneck_1/bn/moving_mean:0 (128,) False
+resnet50/group1/block0/bottleneck_1/bn/moving_variance:0 (128,) False
+resnet50/group1/block0/bottleneck_1/conv2d/kernel:0 (1, 1, 256, 128) True
+resnet50/group1/block0/bottleneck_2/bn/beta:0 (128,) True
+resnet50/group1/block0/bottleneck_2/bn/gamma:0 (128,) True
+resnet50/group1/block0/bottleneck_2/bn/moving_mean:0 (128,) False
+resnet50/group1/block0/bottleneck_2/bn/moving_variance:0 (128,) False
+resnet50/group1/block0/bottleneck_2/conv2d/kernel:0 (3, 3, 128, 128) True
+resnet50/group1/block0/bottleneck_3/bn/beta:0 (512,) True
+resnet50/group1/block0/bottleneck_3/bn/gamma:0 (512,) True
+resnet50/group1/block0/bottleneck_3/bn/moving_mean:0 (512,) False
+resnet50/group1/block0/bottleneck_3/bn/moving_variance:0 (512,) False
+resnet50/group1/block0/bottleneck_3/conv2d/kernel:0 (1, 1, 128, 512) True
+resnet50/group1/block0/shortcut/bn/beta:0 (512,) True
+resnet50/group1/block0/shortcut/bn/gamma:0 (512,) True
+resnet50/group1/block0/shortcut/bn/moving_mean:0 (512,) False
+resnet50/group1/block0/shortcut/bn/moving_variance:0 (512,) False
+resnet50/group1/block0/shortcut/conv2d/kernel:0 (1, 1, 256, 512) True
+resnet50/group1/block1/bottleneck_1/bn/beta:0 (128,) True
+resnet50/group1/block1/bottleneck_1/bn/gamma:0 (128,) True
+resnet50/group1/block1/bottleneck_1/bn/moving_mean:0 (128,) False
+resnet50/group1/block1/bottleneck_1/bn/moving_variance:0 (128,) False
+resnet50/group1/block1/bottleneck_1/conv2d/kernel:0 (1, 1, 512, 128) True
+resnet50/group1/block1/bottleneck_2/bn/beta:0 (128,) True
+resnet50/group1/block1/bottleneck_2/bn/gamma:0 (128,) True
+resnet50/group1/block1/bottleneck_2/bn/moving_mean:0 (128,) False
+resnet50/group1/block1/bottleneck_2/bn/moving_variance:0 (128,) False
+resnet50/group1/block1/bottleneck_2/conv2d/kernel:0 (3, 3, 128, 128) True
+resnet50/group1/block1/bottleneck_3/bn/beta:0 (512,) True
+resnet50/group1/block1/bottleneck_3/bn/gamma:0 (512,) True
+resnet50/group1/block1/bottleneck_3/bn/moving_mean:0 (512,) False
+resnet50/group1/block1/bottleneck_3/bn/moving_variance:0 (512,) False
+resnet50/group1/block1/bottleneck_3/conv2d/kernel:0 (1, 1, 128, 512) True
+resnet50/group1/block2/bottleneck_1/bn/beta:0 (128,) True
+resnet50/group1/block2/bottleneck_1/bn/gamma:0 (128,) True
+resnet50/group1/block2/bottleneck_1/bn/moving_mean:0 (128,) False
+resnet50/group1/block2/bottleneck_1/bn/moving_variance:0 (128,) False
+resnet50/group1/block2/bottleneck_1/conv2d/kernel:0 (1, 1, 512, 128) True
+resnet50/group1/block2/bottleneck_2/bn/beta:0 (128,) True
+resnet50/group1/block2/bottleneck_2/bn/gamma:0 (128,) True
+resnet50/group1/block2/bottleneck_2/bn/moving_mean:0 (128,) False
+resnet50/group1/block2/bottleneck_2/bn/moving_variance:0 (128,) False
+resnet50/group1/block2/bottleneck_2/conv2d/kernel:0 (3, 3, 128, 128) True
+resnet50/group1/block2/bottleneck_3/bn/beta:0 (512,) True
+resnet50/group1/block2/bottleneck_3/bn/gamma:0 (512,) True
+resnet50/group1/block2/bottleneck_3/bn/moving_mean:0 (512,) False
+resnet50/group1/block2/bottleneck_3/bn/moving_variance:0 (512,) False
+resnet50/group1/block2/bottleneck_3/conv2d/kernel:0 (1, 1, 128, 512) True
+resnet50/group1/block3/bottleneck_1/bn/beta:0 (128,) True
+resnet50/group1/block3/bottleneck_1/bn/gamma:0 (128,) True
+resnet50/group1/block3/bottleneck_1/bn/moving_mean:0 (128,) False
+resnet50/group1/block3/bottleneck_1/bn/moving_variance:0 (128,) False
+resnet50/group1/block3/bottleneck_1/conv2d/kernel:0 (1, 1, 512, 128) True
+resnet50/group1/block3/bottleneck_2/bn/beta:0 (128,) True
+resnet50/group1/block3/bottleneck_2/bn/gamma:0 (128,) True
+resnet50/group1/block3/bottleneck_2/bn/moving_mean:0 (128,) False
+resnet50/group1/block3/bottleneck_2/bn/moving_variance:0 (128,) False
+resnet50/group1/block3/bottleneck_2/conv2d/kernel:0 (3, 3, 128, 128) True
+resnet50/group1/block3/bottleneck_3/bn/beta:0 (512,) True
+resnet50/group1/block3/bottleneck_3/bn/gamma:0 (512,) True
+resnet50/group1/block3/bottleneck_3/bn/moving_mean:0 (512,) False
+resnet50/group1/block3/bottleneck_3/bn/moving_variance:0 (512,) False
+resnet50/group1/block3/bottleneck_3/conv2d/kernel:0 (1, 1, 128, 512) True
+resnet50/group2/block0/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block0/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block0/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block0/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block0/bottleneck_1/conv2d/kernel:0 (1, 1, 512, 256) True
+resnet50/group2/block0/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block0/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block0/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block0/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block0/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block0/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block0/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block0/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block0/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block0/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group2/block0/shortcut/bn/beta:0 (1024,) True
+resnet50/group2/block0/shortcut/bn/gamma:0 (1024,) True
+resnet50/group2/block0/shortcut/bn/moving_mean:0 (1024,) False
+resnet50/group2/block0/shortcut/bn/moving_variance:0 (1024,) False
+resnet50/group2/block0/shortcut/conv2d/kernel:0 (1, 1, 512, 1024) True
+resnet50/group2/block1/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block1/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block1/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block1/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block1/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 256) True
+resnet50/group2/block1/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block1/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block1/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block1/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block1/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block1/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block1/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block1/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block1/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block1/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group2/block2/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block2/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block2/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block2/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block2/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 256) True
+resnet50/group2/block2/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block2/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block2/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block2/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block2/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block2/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block2/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block2/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block2/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block2/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group2/block3/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block3/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block3/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block3/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block3/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 256) True
+resnet50/group2/block3/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block3/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block3/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block3/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block3/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block3/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block3/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block3/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block3/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block3/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group2/block4/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block4/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block4/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block4/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block4/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 256) True
+resnet50/group2/block4/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block4/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block4/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block4/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block4/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block4/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block4/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block4/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block4/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block4/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group2/block5/bottleneck_1/bn/beta:0 (256,) True
+resnet50/group2/block5/bottleneck_1/bn/gamma:0 (256,) True
+resnet50/group2/block5/bottleneck_1/bn/moving_mean:0 (256,) False
+resnet50/group2/block5/bottleneck_1/bn/moving_variance:0 (256,) False
+resnet50/group2/block5/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 256) True
+resnet50/group2/block5/bottleneck_2/bn/beta:0 (256,) True
+resnet50/group2/block5/bottleneck_2/bn/gamma:0 (256,) True
+resnet50/group2/block5/bottleneck_2/bn/moving_mean:0 (256,) False
+resnet50/group2/block5/bottleneck_2/bn/moving_variance:0 (256,) False
+resnet50/group2/block5/bottleneck_2/conv2d/kernel:0 (3, 3, 256, 256) True
+resnet50/group2/block5/bottleneck_3/bn/beta:0 (1024,) True
+resnet50/group2/block5/bottleneck_3/bn/gamma:0 (1024,) True
+resnet50/group2/block5/bottleneck_3/bn/moving_mean:0 (1024,) False
+resnet50/group2/block5/bottleneck_3/bn/moving_variance:0 (1024,) False
+resnet50/group2/block5/bottleneck_3/conv2d/kernel:0 (1, 1, 256, 1024) True
+resnet50/group3/block0/bottleneck_1/bn/beta:0 (512,) True
+resnet50/group3/block0/bottleneck_1/bn/gamma:0 (512,) True
+resnet50/group3/block0/bottleneck_1/bn/moving_mean:0 (512,) False
+resnet50/group3/block0/bottleneck_1/bn/moving_variance:0 (512,) False
+resnet50/group3/block0/bottleneck_1/conv2d/kernel:0 (1, 1, 1024, 512) True
+resnet50/group3/block0/bottleneck_2/bn/beta:0 (512,) True
+resnet50/group3/block0/bottleneck_2/bn/gamma:0 (512,) True
+resnet50/group3/block0/bottleneck_2/bn/moving_mean:0 (512,) False
+resnet50/group3/block0/bottleneck_2/bn/moving_variance:0 (512,) False
+resnet50/group3/block0/bottleneck_2/conv2d/kernel:0 (3, 3, 512, 512) True
+resnet50/group3/block0/bottleneck_3/bn/beta:0 (2048,) True
+resnet50/group3/block0/bottleneck_3/bn/gamma:0 (2048,) True
+resnet50/group3/block0/bottleneck_3/bn/moving_mean:0 (2048,) False
+resnet50/group3/block0/bottleneck_3/bn/moving_variance:0 (2048,) False
+resnet50/group3/block0/bottleneck_3/conv2d/kernel:0 (1, 1, 512, 2048) True
+resnet50/group3/block0/shortcut/bn/beta:0 (2048,) True
+resnet50/group3/block0/shortcut/bn/gamma:0 (2048,) True
+resnet50/group3/block0/shortcut/bn/moving_mean:0 (2048,) False
+resnet50/group3/block0/shortcut/bn/moving_variance:0 (2048,) False
+resnet50/group3/block0/shortcut/conv2d/kernel:0 (1, 1, 1024, 2048) True
+resnet50/group3/block1/bottleneck_1/bn/beta:0 (512,) True
+resnet50/group3/block1/bottleneck_1/bn/gamma:0 (512,) True
+resnet50/group3/block1/bottleneck_1/bn/moving_mean:0 (512,) False
+resnet50/group3/block1/bottleneck_1/bn/moving_variance:0 (512,) False
+resnet50/group3/block1/bottleneck_1/conv2d/kernel:0 (1, 1, 2048, 512) True
+resnet50/group3/block1/bottleneck_2/bn/beta:0 (512,) True
+resnet50/group3/block1/bottleneck_2/bn/gamma:0 (512,) True
+resnet50/group3/block1/bottleneck_2/bn/moving_mean:0 (512,) False
+resnet50/group3/block1/bottleneck_2/bn/moving_variance:0 (512,) False
+resnet50/group3/block1/bottleneck_2/conv2d/kernel:0 (3, 3, 512, 512) True
+resnet50/group3/block1/bottleneck_3/bn/beta:0 (2048,) True
+resnet50/group3/block1/bottleneck_3/bn/gamma:0 (2048,) True
+resnet50/group3/block1/bottleneck_3/bn/moving_mean:0 (2048,) False
+resnet50/group3/block1/bottleneck_3/bn/moving_variance:0 (2048,) False
+resnet50/group3/block1/bottleneck_3/conv2d/kernel:0 (1, 1, 512, 2048) True
+resnet50/group3/block2/bottleneck_1/bn/beta:0 (512,) True
+resnet50/group3/block2/bottleneck_1/bn/gamma:0 (512,) True
+resnet50/group3/block2/bottleneck_1/bn/moving_mean:0 (512,) False
+resnet50/group3/block2/bottleneck_1/bn/moving_variance:0 (512,) False
+resnet50/group3/block2/bottleneck_1/conv2d/kernel:0 (1, 1, 2048, 512) True
+resnet50/group3/block2/bottleneck_2/bn/beta:0 (512,) True
+resnet50/group3/block2/bottleneck_2/bn/gamma:0 (512,) True
+resnet50/group3/block2/bottleneck_2/bn/moving_mean:0 (512,) False
+resnet50/group3/block2/bottleneck_2/bn/moving_variance:0 (512,) False
+resnet50/group3/block2/bottleneck_2/conv2d/kernel:0 (3, 3, 512, 512) True
+resnet50/group3/block2/bottleneck_3/bn/beta:0 (2048,) True
+resnet50/group3/block2/bottleneck_3/bn/gamma:0 (2048,) True
+resnet50/group3/block2/bottleneck_3/bn/moving_mean:0 (2048,) False
+resnet50/group3/block2/bottleneck_3/bn/moving_variance:0 (2048,) False
+resnet50/group3/block2/bottleneck_3/conv2d/kernel:0 (1, 1, 512, 2048) True
+resnet50/linear/b:0 (1000,) True
+resnet50/linear/W:0 (2048, 1000) True
+resnet50/pre_stage/bn/beta:0 (64,) True
+resnet50/pre_stage/bn/gamma:0 (64,) True
+resnet50/pre_stage/bn/moving_mean:0 (64,) False
+resnet50/pre_stage/bn/moving_variance:0 (64,) False
+resnet50/pre_stage/conv2d/kernel:0 (7, 7, 3, 64) True

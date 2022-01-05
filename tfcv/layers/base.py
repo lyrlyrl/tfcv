@@ -1,24 +1,36 @@
 import abc
 import logging
-
+import os
+from collections import OrderedDict
+import numpy as np
 import tensorflow as tf
 
+from tfcv.layers.utils import need_build
+NOT_AUTO_INIT = ['self', 'name', 'trainable']
+
+def _unprefix(name, prefix):
+    names = name.split('/')
+    if names[0]==prefix:
+        return '/'.join(names[1:])
+    else:
+        return name
 class Layer(tf.Module, metaclass = abc.ABCMeta):
 
     default_name = 'defualt_layer'
 
-    def __init__(self, name=None):
+    def __init__(self, trainable=True, name=None):
         if not name:
             name = self.default_name
         super(Layer, self).__init__(name=name)
         self._output_specs = None
-        self._layers = dict()
+        self._layers = OrderedDict()
         self._built = False
+        self._trainable = trainable
 
     def _init(self, params=None):
         if params:
             for k, v in params.items():
-                if k != 'self' and k != 'name' and not k.startswith('_'):
+                if k not in NOT_AUTO_INIT and not k.startswith('_'):
                     setattr(self, k, v)
 
     @property
@@ -31,6 +43,17 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
     def built(self):
         return self._built
 
+    @property
+    def trainable(self):
+        return self._trainable
+    
+    @trainable.setter
+    def trainable(self, value):
+        assert isinstance(value, bool)
+        self.trainable = value
+    @abc.abstractmethod
+    def compute_output_specs(self, input_shape):
+        pass
     def build(self, *args, **kwargs):
         self._build(*args, **kwargs)
         self._built = True
@@ -48,11 +71,12 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
         return self.call(*args, **kwargs)
 
     def inference_forward(self, *args, **kwargs):
-        
         kwargs['training'] = False
-        print(args, kwargs)
         model_outputs = self.call(*args, **kwargs)
         return self.inference_post_process(model_outputs)
+
+    def __call__(self, *args, **kwds):
+        return self.call(*args, **kwds)
 
     @abc.abstractmethod
     def call(self, *args, **kwargs):
@@ -65,3 +89,48 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
             return self._layers[name.split('/')[0]].get_layer('/'.join(name.split('/')[1:]))
         else:
             raise KeyError(f'layer name {name} not found in {self.name}')
+    
+    def get_sub_layers(self):
+        return self._layers
+    @need_build
+    def load_weights(self, file_path: str, prefix=None, skip_mismatch=False):
+        assert file_path.endswith('.npz')
+        if prefix == None:
+            prefix = self.name
+        r = np.load(file_path)
+        debug_loading = os.getenv('DEBUG_LOADING_WEIGHTS', '0') == '1'
+        logger = logging.getLogger('model_npz_loader')
+        if debug_loading:
+            logger.info(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+            logger.info(f'@@@@@@@@start loading weights from {file_path} to {self.name}@@@@@@@@')
+            logger.info(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+        
+        for v in self.variables:
+            name = v.name
+            if name in r:
+                v.assign(r[name])
+                if debug_loading:
+                    logger.info(f'loading {name} successed with shape of {r[name].shape}')
+            elif name.split(':')[0] in r:
+                name = name.split(':')[0]
+                v.assign(r[name])
+                if debug_loading:
+                    logger.info(f'loading {name} successed with shape of {r[name].shape}')
+            elif _unprefix(name.split(':')[0], prefix) in r:
+                name = _unprefix(name.split(':')[0], prefix)
+                v.assign(r[name])
+                if debug_loading:
+                    logger.info(f'loading {name} successed with shape of {r[name].shape}')
+            elif _unprefix(name.split(':')[0], prefix.split('_')[0]) in r:
+                name = _unprefix(name.split(':')[0], prefix.split('_')[0])
+                v.assign(r[name])
+                if debug_loading:
+                    logger.info(f'loading {name} successed with shape of {r[name].shape}')
+            else:
+                if debug_loading:
+                    logger.warning(f'loading {name} failed')
+        if debug_loading:
+            logger.info(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+            logger.info(f'@@@@@@@@finished loading weights from {prefix} to {self.name}@@@@@@@@')
+            logger.info(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+

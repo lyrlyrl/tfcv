@@ -5,7 +5,7 @@ import tensorflow as tf
 from tfcv.layers.base import Layer
 from tfcv.layers.utils import need_build
 
-def _conv_output_length(input_length, filter_size, padding, stride):
+def conv_output_length(input_length, filter_size, padding, stride):
     if input_length is None:
         return None
     assert padding in ['SAME', 'VALID']
@@ -29,6 +29,7 @@ class Conv2D(Layer):
             bias_initializer: Union[str, tf.keras.initializers.Initializer] = None,
             use_bias=False,
             data_format='NHWC',
+            trainable=True,
             name=None):
         if isinstance(filters, float):
             filters = int(filters)
@@ -36,7 +37,7 @@ class Conv2D(Layer):
             raise ValueError(f'Received a negative value for `filters`.'
                         f'Was expecting a positive value, got {filters}.')
         if isinstance(kernel_size, int):
-            kernel_size = (kernel_size, kernel_size)
+            kernel_size = [kernel_size, kernel_size]
         else:
             kernel_size = list(kernel_size)
         if isinstance(strides, int):
@@ -73,29 +74,15 @@ class Conv2D(Layer):
             input_shape = input_shape.to_list()
         else:
             input_shape = list(input_shape)
-        if self.data_format == 'NCHW':
-            axis = -3
-            self._output_specs = input_shape[:1]+ [
-                _conv_output_length(
-                    length, 
-                    self.kernel_size[i], 
-                    self.padding, 
-                    self.strides[i])
-                for i, length in enumerate(input_shape[1:-1])
-                ]+ [self.filters]
-        else:
+        self._output_specs = self.compute_output_specs(input_shape)
+        if self.data_format == 'NHWC':
             axis = -1
-            self._output_specs = input_shape[:1] + [self.filters] + [
-                _conv_output_length(
-                    length, 
-                    self.kernel_size[i], 
-                    self.padding, 
-                    self.strides[i])
-                for i, length in enumerate(input_shape[1:-1])]
+        else:
+            axis = -3
 
         input_channel = int(input_shape[axis])
 
-        kernel_shape = self.kernel_size + (input_channel, self.filters)
+        kernel_shape = self.kernel_size + [input_channel, self.filters]
 
         with tf.name_scope(self.name):
             self.kernel = tf.Variable(
@@ -113,5 +100,29 @@ class Conv2D(Layer):
                     trainable = True,
                     name = 'bias'
                 )
-        
-        
+                
+    def compute_output_specs(self, input_shape):
+        assert len(input_shape) == 4
+        if isinstance(input_shape, np.ndarray):
+            input_shape = input_shape.to_list()
+        else:
+            input_shape = list(input_shape)
+        if self.data_format == 'NHWC':
+            return input_shape[:1]+ [
+                conv_output_length(
+                    length, 
+                    self.kernel_size[i], 
+                    self.padding, 
+                    self.strides[i])
+                for i, length in enumerate(input_shape[1:-1])
+                ]+ [self.filters]
+        else:
+            return input_shape[:1] + [self.filters] + [
+                conv_output_length(
+                    length, 
+                    self.kernel_size[i], 
+                    self.padding, 
+                    self.strides[i])
+                for i, length in enumerate(input_shape[2:])]
+                
+# class Conv2DTranspose(Layer)    

@@ -2,8 +2,6 @@ from typing import Iterable, List, Tuple, Union
 import numpy as np
 import tensorflow as tf
 
-from tfcv.config import AttrDict
-
 from tfcv.layers.base import Layer
 from tfcv.layers.utils import need_build
 
@@ -11,13 +9,29 @@ class Linear(Layer):
 
     default_name = 'linear'
 
-    def __init__(self, units, name=None):
+    def __init__(
+        self, 
+        units, 
+        kernel_initializer: Union[str, tf.keras.initializers.Initializer] = 'glorot_uniform',
+        use_bias=True,
+        bias_initializer: Union[str, tf.keras.initializers.Initializer] = None,
+        trainable=True,
+        name=None):
+        if use_bias:
+            assert bias_initializer != None
+            if isinstance(bias_initializer, str):
+                bias_initializer = tf.keras.initializers.get(bias_initializer)
+        if isinstance(kernel_initializer, str):
+            kernel_initializer = tf.keras.initializers.get(kernel_initializer)
         self._init(locals())
         super(Linear, self).__init__(name=name)
         
     @need_build
-    def call(self, inputs, **kwargs):
-        return tf.matmul(inputs, self.w) + self.b
+    def call(self, inputs, training=None):
+        if self.use_bias:
+            return tf.matmul(inputs, self.w) + self.bias
+        else:
+            return tf.matmul(inputs, self.w)
     
     def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
         if isinstance(input_shape, np.ndarray):
@@ -25,18 +39,21 @@ class Linear(Layer):
         else:
             input_shape = list(input_shape)
         input_dim = input_shape[-1]
-        input_shape[-1] = self.units
-        self._output_specs = input_shape
+        self._output_specs = self.compute_output_specs(input_shape)
 
         with tf.name_scope(self.name):
-            w_init = tf.random_normal_initializer()
-            self.w = tf.Variable(
-                initial_value=w_init(shape=(input_dim, self.units), dtype="float32"),
-                trainable=True, name='W'
+            self.kernel = tf.Variable(
+                initial_value=self.kernel_initializer(shape=(input_dim, self.units), dtype="float32"),
+                trainable=True, name='kernel'
             )
-            b_init = tf.zeros_initializer()
-            self.b = tf.Variable(
-                initial_value=b_init(shape=(self.units,), dtype="float32"), trainable=True, name='b'
-            )
-
-
+            if self.use_bias:
+                self.bias = tf.Variable(
+                    initial_value=self.bias_initializer(shape=(self.units,), dtype="float32"), trainable=True, name='bias'
+                )
+    def compute_output_specs(self, input_shape):
+        if isinstance(input_shape, np.ndarray):
+            input_shape = input_shape.to_list()
+        else:
+            input_shape = list(input_shape)
+        input_shape[-1] = self.units
+        return input_shape

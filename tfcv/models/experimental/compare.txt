@@ -1,0 +1,65 @@
+Model: "resnet50"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_1 (InputLayer)        [(None, 224, 224, 3)]     0         
+                                                                 
+ resnet50/pre_stage (Conv2DB  (None, 112, 112, 64)     9664      
+ lock)                                                           
+                                                                 
+ max_pooling2d (MaxPooling2D  (None, 56, 56, 64)       0         
+ )                                                               
+                                                                 
+ resnet50/group0/block0 (Bot  (None, 56, 56, 256)      76288     
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group0/block1 (Bot  (None, 56, 56, 256)      71168     
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group0/block2 (Bot  (None, 56, 56, 256)      71168     
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group1/block0 (Bot  (None, 28, 28, 512)      381952    
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group1/block1 (Bot  (None, 28, 28, 512)      281600    
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group1/block2 (Bot  (None, 28, 28, 512)      281600    
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group1/block3 (Bot  (None, 28, 28, 512)      281600    
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block0 (Bot  (None, 14, 14, 1024)     1517568   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block1 (Bot  (None, 14, 14, 1024)     1120256   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block2 (Bot  (None, 14, 14, 1024)     1120256   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block3 (Bot  (None, 14, 14, 1024)     1120256   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block4 (Bot  (None, 14, 14, 1024)     1120256   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group2/block5 (Bot  (None, 14, 14, 1024)     1120256   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group3/block0 (Bot  (None, 7, 7, 2048)       6049792   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group3/block1 (Bot  (None, 7, 7, 2048)       4468736   
+ tleneckBlock)                                                   
+                                                                 
+ resnet50/group3/block2 (Bot  (None, 7, 7, 2048)       4468736   
+ tleneckBlock)                                                   
+                                                                 
+=================================================================
+Total params: 23,561,152
+Trainable params: 23,508,032
+Non-trainable params: 53,120
+_________________________________________________________________

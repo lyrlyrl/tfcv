@@ -25,16 +25,22 @@ class Model(Layer):
     
     def call(self, inputs, training=None):
         if training:
-            return self.layer2.train_forward(
+            return self.layer3.train_forward(self.layer2.train_forward(
                 self.layer1.train_forward(inputs)
-            )
+            ))
         else:
-            return self.layer2.inference_forward(
+            return self.layer3.inference_forward(self.layer2.inference_forward(
                 self.layer1.inference_forward(inputs)
-            )
+            ))
 
 if __name__ == '__main__':
     model = Model()
     print(model.variables)
     model.build([4,4,2])
+    print(model.variables)
+    train_fn = tf.function(model.train_forward)
+    train_fn(tf.ones([4,4,2]))
+    print(model.variables)
+    # model.inference_forward(tf.ones([4,4,2]))
+    train_fn(tf.ones([4,4,2]))
     print(model.variables)
