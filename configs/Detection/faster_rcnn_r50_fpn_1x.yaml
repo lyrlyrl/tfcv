@@ -51,7 +51,7 @@ rpn:
   negative_overlap: 0.3
   positive_overlap: 0.7
   test:
-    nms_thresh: 0.7
+    nms_threshold: 0.7
     post_nms_topn: 1000
     pre_nms_topn: 1000
   train:

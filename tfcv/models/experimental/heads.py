@@ -62,11 +62,46 @@ class RPNHead(Layer):
                 self._layers['rpn_box'].compute_output_specs(internal))
     
     def call(self, inputs, training=None):
-        net = self._layers['rpn_conv'](inputs, training)
+        net = self._layers['rpn_conv'](inputs, training=training)
         net = tf.nn.relu(net)
-        scores = self._layers['rpn_score'](net, training)
-        bboxes = self._layers['rpn_box'](net, training)
+        scores = self._layers['rpn_score'](net, training=training)
+        bboxes = self._layers['rpn_box'](net, training=training)
 
+        return (scores, bboxes)
+
+class MultilevelRPNHead(RPNHead):
+
+    def __init__(
+        self, 
+        min_level: int,
+        max_level: int,
+        num_anchors: int, 
+        num_filters: int, 
+        trainable=True, 
+        name=None):
+        self._init(locals())
+        super(MultilevelRPNHead, self).__init__(num_anchors, num_filters, trainable=trainable, name=name)
+    def compute_output_specs(self, input_shape):
+        scores = dict()
+        bboxes = dict()
+        for level in range(self.min_level, self.max_level+1):
+            scores[str(level)], bboxes[str(level)] = super(MultilevelRPNHead, self).compute_output_specs(input_shape[str(level)])
+        return (scores, bboxes)
+    def _build(self, input_shape):
+        with tf.name_scope(self.name):
+            self._layers['rpn_conv'].build(list(input_shape.values())[0])
+            output_specs = self._layers['rpn_conv'].output_specs
+            self._layers['rpn_score'].build(output_specs)
+            self._layers['rpn_box'].build(output_specs)
+        self._output_specs = self.compute_output_specs(input_shape)
+    def call(self, inputs, training=None):
+        scores = dict()
+        bboxes = dict()
+        for level in range(self.min_level, self.max_level+1):
+            net = self._layers['rpn_conv'](inputs[str(level)], training=training)
+            net = tf.nn.relu(net)
+            scores[str(level)] = self._layers['rpn_score'](net, training=training)
+            bboxes[str(level)] = self._layers['rpn_box'](net, training=training)
         return (scores, bboxes)
 
 class FCBoxHead(Layer):
@@ -86,12 +121,10 @@ class FCBoxHead(Layer):
         self._layers['class_predict'] = Linear(
             num_classes, 
             kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-            bias_initializer=tf.keras.initializers.Zeros(),
             trainable=trainable, name='class_predict')
         self._layers['box_predict'] = Linear(
             num_classes * 4, 
             kernel_initializer=tf.random_normal_initializer(stddev=0.001),
-            bias_initializer=tf.keras.initializers.Zeros(),
             trainable=trainable, name='box_predict')
 
     def _build(self, input_shape):
@@ -102,6 +135,13 @@ class FCBoxHead(Layer):
         self._layers['box_predict'].build(self._layers['fc7'].output_specs)
         self._output_specs = (self._layers['class_predict'].output_specs, 
             self._layers['box_predict'].output_specs)
+
+    def compute_output_specs(self, input_shape):
+        batch_size, num_rois, _, _, _ = input_shape
+        return (
+            [batch_size, num_rois, self.num_classes],
+            [batch_size, num_rois, self.num_classes * 4]
+        )
 
     def call(self, inputs, training=None):
         batch_size, num_rois, height, width, filters = inputs.get_shape().as_list()
@@ -117,3 +157,4 @@ class FCBoxHead(Layer):
         box_outputs = self._layers['box_predict'](box_features, training)
 
         return (class_outputs, box_outputs)
+    

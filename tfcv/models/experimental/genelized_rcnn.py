@@ -6,7 +6,7 @@ from tfcv.layers.activation import get_activation
 from tfcv.layers.utils import need_build
 from tfcv.layers.conv2d import Conv2D
 from tfcv.layers.pooling import MaxPooling2D
-from tfcv.models.experimental.heads import RPNHead, FCBoxHead
+from tfcv.models.experimental.heads import RPNHead, FCBoxHead, MultilevelRPNHead
 from tfcv.models.experimental.fpn import FPN
 from tfcv.models.experimental.resnet import ResNet
 from tfcv.ops import spatial_transform_ops
@@ -29,7 +29,9 @@ class GenelizedRCNN(Layer):
         self.fpn = FPN(
             min_level=self.cfg.min_level,
             max_level=self.cfg.max_level)
-        self.rpn_head = RPNHead(
+        self.rpn_head = MultilevelRPNHead(
+            min_level=self.cfg.min_level,
+            max_level=self.cfg.max_level,
             num_anchors=len(self.cfg.anchor.aspect_ratios * self.cfg.anchor.num_scales),
             num_filters=256,
             name='rpn_head')
@@ -38,27 +40,23 @@ class GenelizedRCNN(Layer):
             mlp_head_dim=self.cfg.frcnn.mlp_head_dim,
             name='box_head'
         )
-    def call(self, images, image_info=None, \
-                gt_boxes=None, gt_classes=None, training=None):
+    @need_build
+    def call(self, images, training=None):
         backbone_feats = self.backbone(images, training=training)
         fpn_feats = self.fpn(backbone_feats, training=training)
-        def rpn_head_fn(features, min_level=2, max_level=6):
-            """Region Proposal Network (RPN) for Mask-RCNN."""
-            scores_outputs = dict()
-            box_outputs = dict()
-
-            for level in range(min_level, max_level + 1):
-                scores_outputs[str(level)], box_outputs[str(level)] = self.rpn_head(features[str(level)], training=training)
-
-            return scores_outputs, box_outputs
-        rpn_score_outputs, rpn_box_outputs = rpn_head_fn(
-            features=fpn_feats,
-            min_level=self.cfg.min_level,
-            max_level=self.cfg.max_level
+        rpn_score_outputs, rpn_box_outputs = self.rpn_head(
+            fpn_feats, training=training
         )
         return (rpn_score_outputs, rpn_box_outputs)
-    def build(self, input_shape):
+
+    def _build(self, input_shape):
+        batch_size, image_height, image_width, _ = input_shape
         with tf.name_scope(self.name):
             self.backbone.build(input_shape)
             self.fpn.build(self.backbone.output_specs)
+            self.rpn_head.build(self.fpn.output_specs)
+            self._output_specs = self.rpn_head.output_specs
+    
+    def compute_output_specs(self, input_shape):
+        pass
             

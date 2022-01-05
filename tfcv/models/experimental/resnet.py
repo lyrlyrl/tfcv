@@ -232,7 +232,8 @@ class BlockGroup(Layer):
         for i in range(self.block_repeats):
             x = self._layers[f'block{str(i)}'](x, training=training)
         return x
-    def c
+    def compute_output_specs(self, input_shape):
+        return compute_sequence_output_specs([self._layers[f'block{str(i)}'] for i in range(self.block_repeats)], input_shape)
 
 class ResNet(Layer):
 
@@ -332,4 +333,22 @@ class ResNet(Layer):
                 '5': endpoint_5,}
 
     def compute_output_specs(self, input_shape):
-        
+        internal = self._layers['pre_stage'].compute_output_specs(input_shape)
+        internal = self._layers['pre_maxpool'].compute_output_specs(internal)
+
+        endpoint_2 = self._layers['group0'].compute_output_specs(internal)
+        endpoint_3 = self._layers['group1'].compute_output_specs(endpoint_2)
+        endpoint_4 = self._layers['group2'].compute_output_specs(endpoint_3)
+        endpoint_5 = self._layers['group3'].compute_output_specs(endpoint_4)
+
+        if not self.include_top:
+            return {
+                '2': endpoint_2,
+                '3': endpoint_3,
+                '4': endpoint_4,
+                '5': endpoint_5
+            }
+        else:
+            output = self._layers['avgpool2d'].compute_output_specs(endpoint_5)
+            output = self._layers['linear'].compute_output_specs(output)
+            return output

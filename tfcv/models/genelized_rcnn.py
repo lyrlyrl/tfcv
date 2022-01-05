@@ -89,7 +89,7 @@ class GenelizedRCNN(tf.keras.Model):
         else:
             rpn_pre_nms_topn = self.cfg.rpn.test.pre_nms_topn
             rpn_post_nms_topn = self.cfg.rpn.test.post_nms_topn
-            rpn_nms_threshold = self.cfg.rpn.test.nms_thresh
+            rpn_nms_threshold = self.cfg.rpn.test.nms_threshold
         rpn_box_scores, rpn_box_rois = roi_ops.multilevel_propose_rois(
             scores_outputs=rpn_score_outputs,
             box_outputs=rpn_box_outputs,

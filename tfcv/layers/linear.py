@@ -14,7 +14,7 @@ class Linear(Layer):
         units, 
         kernel_initializer: Union[str, tf.keras.initializers.Initializer] = 'glorot_uniform',
         use_bias=True,
-        bias_initializer: Union[str, tf.keras.initializers.Initializer] = None,
+        bias_initializer: Union[str, tf.keras.initializers.Initializer] = 'zeros',
         trainable=True,
         name=None):
         if use_bias:
