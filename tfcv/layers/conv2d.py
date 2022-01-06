@@ -15,6 +15,31 @@ def conv_output_length(input_length, filter_size, padding, stride):
         output_length = input_length - filter_size + 1
     return (output_length + stride - 1) // stride
 
+def deconv_output_length(input_length,
+                        filter_size,
+                        padding,
+                        output_padding=None,
+                        stride=0):
+    assert padding in {'SAME', 'VALID'}
+    if input_length is None:
+        return None
+
+    # Infer length if output padding is None, else compute the exact length
+    if output_padding == None:
+        if padding == 'valid':
+            length = input_length * stride + max(filter_size - stride, 0)
+        elif padding == 'same':
+            length = input_length * stride
+
+    else:
+        if padding == 'same':
+            pad = filter_size // 2
+        elif padding == 'valid':
+            pad = 0
+        length = ((input_length - 1) * stride + filter_size - 2 * pad +
+                output_padding)
+    return length
+    
 class Conv2D(Layer):
 
     default_name = 'conv2d'
@@ -102,11 +127,11 @@ class Conv2D(Layer):
                 )
                 
     def compute_output_specs(self, input_shape):
-        assert len(input_shape) == 4
         if isinstance(input_shape, np.ndarray):
             input_shape = input_shape.to_list()
         else:
             input_shape = list(input_shape)
+        assert len(input_shape) == 4
         if self.data_format == 'NHWC':
             return input_shape[:1]+ [
                 conv_output_length(
@@ -125,4 +150,46 @@ class Conv2D(Layer):
                     self.strides[i])
                 for i, length in enumerate(input_shape[2:])]
                 
-# class Conv2DTranspose(Layer)    
+class Conv2DTranspose(Layer):
+    def _build(self, input_shape):
+        if isinstance(input_shape, np.ndarray):
+            input_shape = input_shape.to_list()
+        else:
+            input_shape = list(input_shape)
+        assert len(input_shape) == 4
+        
+    def compute_output_shape(self, input_shape):
+        if isinstance(input_shape, np.ndarray):
+            input_shape = input_shape.to_list()
+        else:
+            input_shape = list(input_shape)
+        assert len(input_shape) == 4
+
+        output_shape = list(input_shape)
+        if self.data_format == 'NCHW':
+            c_axis, h_axis, w_axis = 1, 2, 3
+        else:
+            c_axis, h_axis, w_axis = 3, 1, 2
+
+        kernel_h, kernel_w = self.kernel_size
+        stride_h, stride_w = self.strides
+
+        if self.output_padding is None:
+            out_pad_h = out_pad_w = None
+        else:
+            out_pad_h, out_pad_w = self.output_padding
+
+        output_shape[c_axis] = self.filters
+        output_shape[h_axis] = deconv_output_length(
+            output_shape[h_axis],
+            kernel_h,
+            padding=self.padding,
+            output_padding=out_pad_h,
+            stride=stride_h)
+        output_shape[w_axis] = deconv_output_length(
+            output_shape[w_axis],
+            kernel_w,
+            padding=self.padding,
+            output_padding=out_pad_w,
+            stride=stride_w)
+        return output_shape

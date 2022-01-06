@@ -8,7 +8,6 @@ Residual networks (ResNets) were proposed in:
 
 import tensorflow as tf
 
-from tfcv.layers import SyncBatchNormalization
 from tfcv.models.utils import load_npz
 
 layers = tf.keras.layers
@@ -114,7 +113,7 @@ class Conv2DBlock(tf.keras.layers.Layer):
                 bn_axis = -1
             else:
                 bn_axis = 1
-            layer = SyncBatchNormalization if use_sync_bn else tf.keras.layers.BatchNormalization
+            layer = tf.keras.layers.BatchNormalization
             self._bn = layer(
                 axis = bn_axis,
                 momentum = norm_momentum,
