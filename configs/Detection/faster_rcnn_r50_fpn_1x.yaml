@@ -44,7 +44,10 @@ loss:
   l2_weight_decay: 1.0e-4
 backbone:
   resnet_id: 50
+fpn:
+  num_filters: 256
 rpn:
+  num_filters: 256
   batch_size_per_im: 256
   fg_fraction: 0.5
   min_size: 0.0

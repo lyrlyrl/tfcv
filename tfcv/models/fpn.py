@@ -17,7 +17,7 @@ class FPN(Layer):
         self, 
         min_level=2,
         max_level=6,
-        filters=256,
+        num_filters=256,
         kernel_initializer='glorot_uniform',
         trainable=True, name=None):
         if isinstance(kernel_initializer, str):
@@ -34,7 +34,7 @@ class FPN(Layer):
 
         self._layers["stage1"] = {
             str(level): Conv2D(
-                filters=self.filters,
+                filters=self.num_filters,
                 kernel_size=(1, 1),
                 padding='same',
                 kernel_initializer=self.kernel_initializer,
@@ -45,7 +45,7 @@ class FPN(Layer):
 
         self._layers["stage2"] = {
             str(level): Conv2D(
-                filters=self.filters,
+                filters=self.num_filters,
                 strides=(1, 1),
                 kernel_size=(3, 3),
                 padding='same',
@@ -66,7 +66,7 @@ class FPN(Layer):
         else:
             self._layers["stage3"] = {
                 str(level): Conv2D(
-                    filters=self.filters,
+                    filters=self.num_filters,
                     strides=(1, 1),
                     kernel_size=(3, 3),
                     padding='same',

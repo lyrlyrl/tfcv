@@ -3,9 +3,8 @@ import tensorflow as tf
 from tfcv.layers.base import Layer
 
 from tfcv.layers.conv2d import Conv2D, Conv2DTranspose
-from tfcv.layers.normalization import BatchNormalization
 from tfcv.layers.linear import Linear
-from tfcv.layers.utils import compute_sequence_output_specs, need_build, build_layers
+from tfcv.layers.utils import need_build, build_layers
 
 class RPNHead(Layer):
 

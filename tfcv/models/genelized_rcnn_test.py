@@ -24,11 +24,11 @@ if __name__ == '__main__':
     outputs = model(
         datapoint['images'], 
         datapoint['image_info'], 
-        datapoint['gt_boxes'], 
         datapoint['gt_classes'], 
+        datapoint['gt_boxes'], 
         datapoint['cropped_gt_masks'],
         training=False)
-    
+    # print(outputs.shape)    
     def nest_print(inputs, pre='*'):
         for k,v in inputs.items():
             if isinstance(v, dict):
