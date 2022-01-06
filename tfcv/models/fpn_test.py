@@ -1,5 +1,5 @@
-from tfcv.models.experimental.resnet import ResNet
-from tfcv.models.experimental.fpn import FPN
+from tfcv.models.resnet import ResNet
+from tfcv.models.fpn import FPN
 import tensorflow as tf
 
 if __name__ == '__main__':

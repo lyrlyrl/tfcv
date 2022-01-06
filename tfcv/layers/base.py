@@ -51,15 +51,16 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
     def trainable(self, value):
         assert isinstance(value, bool)
         self.trainable = value
+    
     @abc.abstractmethod
     def compute_output_specs(self, input_shape):
         pass
+    
     def build(self, *args, **kwargs):
         self._build(*args, **kwargs)
         self._built = True
-        assert self._output_specs is not None
+        # assert self._output_specs is not None
     
-    @abc.abstractmethod
     def _build(self, *args, **kwargs):
         pass
     

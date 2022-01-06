@@ -12,3 +12,8 @@ def compute_sequence_output_specs(layers: List, inputs):
     for l in layers:
         inputs = l.compute_output_specs(inputs)
     return inputs
+
+def build_layers(layers: List, input_shape):
+    for l in layers:
+        l.build(input_shape)
+        input_shape = l.output_specs

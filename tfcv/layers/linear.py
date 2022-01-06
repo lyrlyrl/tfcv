@@ -29,9 +29,9 @@ class Linear(Layer):
     @need_build
     def call(self, inputs, training=None):
         if self.use_bias:
-            return tf.matmul(inputs, self.w) + self.bias
+            return tf.matmul(inputs, self.kernel) + self.bias
         else:
-            return tf.matmul(inputs, self.w)
+            return tf.matmul(inputs, self.kernel)
     
     def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
         if isinstance(input_shape, np.ndarray):
