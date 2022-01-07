@@ -8,7 +8,7 @@ from tfcv.ops.losses.rpn_loss import RPNLoss
 
 from tfcv.runners.base import DetectionTrainer, DetectionExporter
 
-class FasterRCNNTrainer(DetectionTrainer):
+class GenelizedRCNNTrainer(DetectionTrainer):
 
     def train_forward(self, inputs):
         model_outputs = self._model(

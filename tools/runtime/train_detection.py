@@ -3,6 +3,9 @@ import argparse
 import math
 import tensorflow as tf
 import shutil
+import glob
+import logging
+
 from tfcv.config import update_cfg, config as cfg
 
 from tfcv.datasets.coco.dataset import Dataset
@@ -54,9 +57,11 @@ def train(run_id, mg=False):
 
     model = create_model()
     model.build(True)
-    initialize_model(model, run_id)
+    
+    checkpoint = initialize(model, optimizer, run_id)
 
     hooks = []
+    
     trainer = create_trainer(model, optimizer, hooks)
     trainer.compile()
     train_iter = iter(train_data)
@@ -64,9 +69,11 @@ def train(run_id, mg=False):
     trainer.train(total_steps, train_iter)
 
     step = optimizer.iterations.numpy()
+
     model.save_weights(
-        os.path.join(cfg.model_dir, 'model_weights', str(run_id), f'{model.name}-{str(step)}.npz')
+        os.path.join(cfg.model_dir, 'checkpoint', str(run_id), f'{model.name}-{str(step)}.npz')
     )
+    checkpoint.write(os.path.join(cfg.model_dir, 'checkpoint', 'optimizer', 'opt'))
 
 
 def create_model():
@@ -75,19 +82,39 @@ def create_model():
 def create_trainer(model, optimizer, hooks=[]):
     pass
 
-def initialize_model(model, run_id):
-    all_weight_dir = os.path.join(cfg.model_dir, 'model_weights')
+def initialize(model, opt, run_id):
+    all_weight_dir = os.path.join(cfg.model_dir, 'checkpoint')
     historys = list(map(int, os.listdir(all_weight_dir)))
-    if max(historys) >= run_id:
-        for i in historys:
-            if i >= run_id:
-                shutil.rmtree(os.path.join())
-    weight_dir = os.path.join(all_weight_dir, str(run_id))
-    if os.path.isdir(all_weight_dir):
-        model_name = model.name
-        weights = [name for name in os.listdir(weight_dir) if name.endswith('.npz')]
-    else:
-        os.makedirs(weight_dir)
+
+    history_id = -1
+
+    for i in historys:
+        try:
+            i = int(i)
+            assert i < run_id
+        except:
+            shutil.rmtree(os.path.join(all_weight_dir, i))
+            logging.info(f'unuseful remove{os.path.join(all_weight_dir, i)}')
+            continue
+        if i > history_id:
+            history_id = i
+
+    checkpoint = tf.train.Checkpoint(optimizer = opt)
+
+    if history_id >= 0:
+        weight_dir = os.path.join(all_weight_dir, str(run_id))
+        np_path_pattern = os.path.join(weight_dir, f'{model.name}-*.npz')
+        path = glob.glob(np_path_pattern)[0]
+        model.load_weights(path)
+
+        if os.path.isdir(os.path.join(weight_dir, 'optimizer')):
+            opt_path = tf.train.latest_checkpoint(
+                os.path.join(weight_dir, 'optimizer'), latest_filename=None
+            )
+            checkpoint.read(opt_path)
+
+    return checkpoint
+
     
 
 if __name__ == '__main__':

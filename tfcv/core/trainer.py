@@ -25,7 +25,8 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             model: tf.keras.Model,
             optimizer=None,
             metrics=[],
-            hooks=None):
+            hooks=None,
+            mg=False):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
 
@@ -43,6 +44,8 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         self.hooks = hooks
         if self.hooks:
             self.hooks.set_trainer(self)
+        
+        self._mg = mg
 
         self._logger = logging.getLogger('trainer')
 
@@ -59,19 +62,15 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         """Accesses the training loss metric object."""
         return self._train_loss
 
-    def compile(self, train=True):
-        strategy = tf.distribute.get_strategy()
+    def compile(self, training=True):
         
-        if train:
+        if training:
             train_step_fn = tf.function(self.train_step)
             def dist_train_step(iterator):
-                strategy.run(
-                    train_step_fn,
-                    args=(next(iterator),)
-                )
+                pass
             self._train_op = tf.function(dist_train_step)
 
-        if not self._validation_op:
+        else:
             def dist_validation_op(dist_inputs):
                 per_replica_predictions = strategy.run(self.validation_forward, args=(dist_inputs, ))
                 predictions = merge_replica_results(strategy, per_replica_predictions)
@@ -103,10 +102,12 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             self.hooks.after_epoch(train_throuput, train_loss, metrics)
             current_step += steps_to_run
 
+    @abc.abstractmethod
     def train_forward(self, inputs):
         model_outputs = self._model(inputs, training=True)
         raw_loss = tf.math.reduce_sum(self._model.losses)
-        return (raw_loss, None, model_outputs) # total_loss, to_update, to_output
+        to_update = None
+        return (raw_loss, to_update, model_outputs) # total_loss, to_update, to_output
 
     def train_step(self, inputs):
         with tf.GradientTape() as tape:

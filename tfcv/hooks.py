@@ -128,5 +128,5 @@ class TrainCheckpoint(Hook):
     def after_evaluate(self, outputs):
         if self._trained:
             pass
-    
+
 

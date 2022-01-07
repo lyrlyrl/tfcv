@@ -11,7 +11,7 @@ from tfcv.hooks import HookList, TrainCheckpoint
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.models.genelized_rcnn import GenelizedRCNN
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
-from tfcv.runners.faster_rcnn import FasterRCNNTrainer, FasterRCNNExporter
+from tfcv.runners.genelized_rcnn import FasterRCNNTrainer, FasterRCNNExporter
 
 from tfcv.config import update_cfg, setup_args, config as cfg
 from tfcv.utils.default_args import TRAIN_PARSER
