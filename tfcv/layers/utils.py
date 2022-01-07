@@ -1,9 +1,10 @@
 from typing import List
 
 def need_build(f):
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        self = args[0]
         if self.built:
-            return f(self, *args, **kwargs)
+            return f(*args, **kwargs)
         else:
             raise ValueError(f'function {self.name}.{f.__name__} need build ahead')
     return wrapper

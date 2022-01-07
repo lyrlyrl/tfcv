@@ -93,6 +93,7 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
     
     def get_sub_layers(self):
         return self._layers
+    
     @need_build
     def load_weights(self, file_path: str, prefix=None, skip_mismatch=False):
         assert file_path.endswith('.npz')
@@ -135,3 +136,11 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
             logger.info(f'@@@@@@@@finished loading weights from {prefix} to {self.name}@@@@@@@@')
             logger.info(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
 
+    @need_build
+    def save_weights(self, file_path, exclude_pattern=None):
+        assert file_path.endswith('.npz')
+        values = {
+            v.name: v.numpy()
+            for v in self.variables
+        }
+        np.savez(file_path, **values)

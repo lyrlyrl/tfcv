@@ -1,22 +1,24 @@
 import argparse
 
-TRAIN_PARSER = argparse.ArgumentParser(
+RUN_PARSER = argparse.ArgumentParser(
     description='custom implementation of cv models for TensorFlow 2.x',
     add_help=True)
 
 # store hyperparameters
-RUNTIME_GROUP = TRAIN_PARSER.add_argument_group('Runtime')
-HYPER_GROUP = TRAIN_PARSER.add_argument_group('Hyperparameters')
+COMMON_GROUP = RUN_PARSER.add_argument_group('Common')
+TRAIN_GROUP = RUN_PARSER.add_argument_group('Train')
+EVAL_GROUP = RUN_PARSER.add_argument_group('Eval')
+EXPORT_GROUP = RUN_PARSER.add_argument_group('Export')
 
-RUNTIME_GROUP.add_argument(
+COMMON_GROUP.add_argument(
     'mode',
     type=str,
     metavar='MODE',
-    choices=['train', 'eval'],
+    choices=['train', 'eval', 'export'],
     help='run mode',
 )
 
-RUNTIME_GROUP.add_argument(
+COMMON_GROUP.add_argument(
     '--config_file',
     type=str,
     default=None,
@@ -24,7 +26,7 @@ RUNTIME_GROUP.add_argument(
     required=True
 )
 
-RUNTIME_GROUP.add_argument(
+COMMON_GROUP.add_argument(
     '--model_dir',
     type=str,
     default=None,
@@ -32,28 +34,14 @@ RUNTIME_GROUP.add_argument(
     required=True
 )
 
-RUNTIME_GROUP.add_argument(
-    '--eval_number',
+COMMON_GROUP.add_argument(
+    '--gpu_ids',
     type=int,
-    default=None,
     nargs='+',
-    help='checkpoint number to evaluate',
+    help='id of gpus to use'
 )
 
-RUNTIME_GROUP.add_argument(
-    '--export_to_savedmodel',
-    action='store_true',
-    help='export model to tf saved_model format'
-)
-
-RUNTIME_GROUP.add_argument(
-    '--num_gpus',
-    type=int,
-    default=1,
-    help='number of gpus to use'
-)
-
-HYPER_GROUP.add_argument(
+COMMON_GROUP.add_argument(
     '--seed',
     type=int,
     default=None,
@@ -61,20 +49,20 @@ HYPER_GROUP.add_argument(
     help='Set a constant seed for reproducibility'
 )
 
-HYPER_GROUP.add_argument(
-    '--xla',
+COMMON_GROUP.add_argument(
+    '--noxla',
     action='store_true',
-    help='Enable XLA JIT Compiler'
+    help='Disable XLA JIT Compiler'
 )
 
-HYPER_GROUP.add_argument(
-    '--amp',
-    action='store_true',
-    help='Enable automatic mixed precision'
+COMMON_GROUP.add_argument(
+    '--config_override',
+    help='A list of KEY=VALUE to overwrite those defined in config.yaml',
+    nargs='+'
 )
 
 # about train
-HYPER_GROUP.add_argument(
+TRAIN_GROUP.add_argument(
     '--steps_per_loop',
     type=int,
     default=100,
@@ -82,8 +70,24 @@ HYPER_GROUP.add_argument(
     help='Number of steps per train loop'
 )
 
-HYPER_GROUP.add_argument(
-    '--config_override',
-    help='A list of KEY=VALUE to overwrite those defined in config.yaml',
-    nargs='+'
+TRAIN_GROUP.add_argument(
+    '--amp',
+    action='store_true',
+    help='Enable automatic mixed precision'
+)
+
+# about evaluate
+EVAL_GROUP.add_argument(
+    '--eval_number',
+    type=int,
+    default=None,
+    nargs='+',
+    help='checkpoint number to evaluate',
+)
+
+# about export
+EXPORT_GROUP.add_argument(
+    '--export_to_savedmodel',
+    action='store_true',
+    help='export model to tf saved_model format'
 )

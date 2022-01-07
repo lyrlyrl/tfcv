@@ -7,7 +7,7 @@ from tfcv.ops import anchors
 from tfcv.models.genelized_rcnn import GenelizedRCNN
 from tfcv.ops import roi_ops, spatial_transform_ops, postprocess_ops, training_ops
 if __name__ == '__main__':
-    config_file = '/home/lin/projects/tfcv/configs/InstanceSeg/mask_rcnn_r50_fpn_1x.yaml'
+    config_file = '/home/yimu/projects/tfcv/configs/InstanceSeg/mask_rcnn_r50_fpn_1x.yaml'
     config_file = os.path.abspath(config_file)
     params = update_cfg(config_file)
     cfg.from_dict(params)
@@ -37,6 +37,7 @@ if __name__ == '__main__':
             else:
                 print(pre, k, v.shape)
     nest_print(outputs)
+    model.save_weights('tmp.npz')
     # print('rpn_box_outputs: ')
     # for k,v in rpn_box_outputs.items():
     #     print(k, v.shape)

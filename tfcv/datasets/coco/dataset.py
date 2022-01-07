@@ -45,10 +45,11 @@ class Dataset:
 
         self._logger = logging.getLogger('dataset')
 
-    def train_fn(self, batch_size):
+    def train_fn(self, batch_size, shard = None):
         """ Input function for training. """
         data = tf.data.TFRecordDataset(self._train_files)
-
+        if shard:
+            data = data.shard(shard[0], shard[1])
         data = data.cache()
         data = data.shuffle(buffer_size=4096, reshuffle_each_iteration=True, seed=cfg.seed)
         data = data.repeat()
@@ -70,12 +71,12 @@ class Dataset:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
 
-        # data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        # data = data.with_options(self._data_options)
+        data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        data = data.with_options(self._data_options)
 
         return data
 
-    def eval_fn(self, batch_size):
+    def eval_fn(self, batch_size, shard = None):
         """ Input function for validation. """
         data = tf.data.TFRecordDataset(self._eval_files)
 
@@ -104,7 +105,7 @@ class Dataset:
             data = data.take(1).cache().repeat()
             data = data.take(5000 // batch_size)
 
-        # data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         # FIXME: This is a walkaround for a bug and should be removed as soon as the fix is merged
         # http://nvbugs/2967052 [V100][JoC][MaskRCNN][TF1] performance regression with 1 GPU

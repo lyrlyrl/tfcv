@@ -94,6 +94,7 @@ class MultilevelRPNHead(RPNHead):
             self._layers['rpn_score'].build(output_specs)
             self._layers['rpn_box'].build(output_specs)
         self._output_specs = self.compute_output_specs(input_shape)
+    @need_build
     def call(self, inputs, training=None):
         scores = dict()
         bboxes = dict()
@@ -129,10 +130,11 @@ class FCBoxHead(Layer):
 
     def _build(self, input_shape):
         batch_size, num_rois, height, width, filters = input_shape
-        self._layers['fc6'].build([batch_size, num_rois, height * width * filters])
-        self._layers['fc7'].build(self._layers['fc6'].output_specs)
-        self._layers['class_predict'].build(self._layers['fc7'].output_specs)
-        self._layers['box_predict'].build(self._layers['fc7'].output_specs)
+        with tf.name_scope(self.name):
+            self._layers['fc6'].build([batch_size, num_rois, height * width * filters])
+            self._layers['fc7'].build(self._layers['fc6'].output_specs)
+            self._layers['class_predict'].build(self._layers['fc7'].output_specs)
+            self._layers['box_predict'].build(self._layers['fc7'].output_specs)
         self._output_specs = (self._layers['class_predict'].output_specs, 
             self._layers['box_predict'].output_specs)
 
@@ -291,10 +293,11 @@ class MaskHead(Layer):
     def _build(self, input_shape):
         batch_size, num_rois, height, width, filters = input_shape
         resized_input_shape = [batch_size * num_rois if num_rois != None else None, height, width, filters]
-        build_layers(
-            [self._layers[f'mask_conv{str(conv_id)}'] for conv_id in range(4)] + [self._layers['mask_deconv'], self._layers['mask_fcn_logits']],
-            resized_input_shape
-        )
+        with tf.name_scope(self.name):
+            build_layers(
+                [self._layers[f'mask_conv{str(conv_id)}'] for conv_id in range(4)] + [self._layers['mask_deconv'], self._layers['mask_fcn_logits']],
+                resized_input_shape
+            )
         self._output_specs = self._layers['mask_fcn_logits'].output_specs
 
     def compute_output_specs(self, input_shape):
