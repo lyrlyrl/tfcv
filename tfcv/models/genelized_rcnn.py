@@ -1,4 +1,3 @@
-from typing import Mapping
 import tensorflow as tf
 
 from tfcv.layers.base import Layer
@@ -24,16 +23,19 @@ class GenelizedRCNN(Layer):
         self._init(locals())
         super(GenelizedRCNN, self).__init__(trainable=trainable, name=name)
         self._init_layers()
+
     def _init_layers(self):
         self._init_backbone()
         self._init_box_layers()
         if self.cfg.include_mask:
             self._init_mask_layers()
+
     def _init_backbone(self):
         self._layers['backbone'] = ResNet(
             self.cfg.backbone.resnet_id,
             include_top=False,
             trainable=self.trainable)
+
     def _init_box_layers(self):
         self._layers['fpn'] = FPN(
             min_level=self.cfg.min_level,
@@ -80,6 +82,7 @@ class GenelizedRCNN(Layer):
             nms_score_threshold=self.cfg.frcnn.test.score,
             bbox_reg_weights=self.cfg.frcnn.bbox_reg_weights
         )
+
     def _init_mask_layers(self):
         self._layers['mask_head'] = MaskHead(
             num_classes=self.cfg.num_classes,
@@ -90,8 +93,6 @@ class GenelizedRCNN(Layer):
             output_size=14
         )
 
-        
-        
     @need_build
     def call(
         self, 
