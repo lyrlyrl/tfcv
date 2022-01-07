@@ -9,7 +9,7 @@ import time
 from tfcv.exception import NanTrainLoss
 from tfcv.utils.progress import get_tqdm
 
-__all__ = ['Trainer', 'merge_replica_results']
+__all__ = ['Runner', 'merge_replica_results']
 
 def merge_replica_results(strategy, inputs):
     dist_values = strategy.experimental_local_results(inputs)
@@ -17,7 +17,7 @@ def merge_replica_results(strategy, inputs):
         return tf.concat(args, 0)
     return tf.nest.map_structure(_merge, *dist_values)
 
-class Trainer(tf.Module, metaclass=abc.ABCMeta):
+class Runner(tf.Module, metaclass=abc.ABCMeta):
 
     def __init__(
             self, 
@@ -27,7 +27,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             metrics=[],
             hooks=None,
             mg=False):
-        super(Trainer, self).__init__(name='trainer')
+        super(Runner, self).__init__(name='runner')
         self._params = params
 
         self._model = model
@@ -43,11 +43,11 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         self.hooks = hooks
         if self.hooks:
-            self.hooks.set_trainer(self)
+            self.hooks.set_runner(self)
         
         self._mg = mg
 
-        self._logger = logging.getLogger('trainer')
+        self._logger = logging.getLogger('runner')
 
     @property
     def model(self):

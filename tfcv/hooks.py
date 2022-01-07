@@ -6,7 +6,7 @@ import numpy as np
 import yaml
 
 from tfcv.exception import NanTrainLoss
-from tfcv.core.trainer import Trainer
+from tfcv.core.runner import Runner
 
 __all__ = ['HookList', 'Hook']
 
@@ -18,7 +18,7 @@ class HookList(object):
         if trainer:
             self.set_trainer(trainer)
 
-    def set_trainer(self, trainer: Trainer):
+    def set_trainer(self, trainer: Runner):
         self.trainer=trainer
         for cb in self.hooks:
             cb.set_trainer(trainer)
@@ -73,7 +73,7 @@ class Hook(object):
     @property
     def chief_only(self):
         return self._chief_only
-    def set_trainer(self, trainer: Trainer):
+    def set_trainer(self, trainer: Runner):
         self.trainer=trainer
     def before_train(self, train_steps):
         pass

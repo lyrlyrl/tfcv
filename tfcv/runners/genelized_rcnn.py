@@ -6,9 +6,9 @@ from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.ops.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.ops.losses.rpn_loss import RPNLoss
 
-from tfcv.runners.base import DetectionTrainer, DetectionExporter
+from tfcv.runners.base import DetectionRunner, DetectionExporter
 
-class GenelizedRCNNTrainer(DetectionTrainer):
+class GenelizedRCNNRunner(DetectionRunner):
 
     def train_forward(self, inputs):
         model_outputs = self._model(

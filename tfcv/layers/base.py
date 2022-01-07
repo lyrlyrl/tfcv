@@ -24,6 +24,7 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
         super(Layer, self).__init__(name=name)
         self._output_specs = None
         self._layers = OrderedDict()
+        self._metrics = dict()
         self._built = False
         self._trainable = trainable
 
@@ -64,18 +65,6 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
     def _build(self, *args, **kwargs):
         pass
     
-    def inference_post_process(self, inputs):
-        return inputs
-    
-    def train_forward(self, *args, **kwargs):
-        kwargs['training'] = True
-        return self.call(*args, **kwargs)
-
-    def inference_forward(self, *args, **kwargs):
-        kwargs['training'] = False
-        model_outputs = self.call(*args, **kwargs)
-        return self.inference_post_process(model_outputs)
-
     def __call__(self, *args, **kwds):
         return self.call(*args, **kwds)
 
@@ -91,9 +80,25 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
         else:
             raise KeyError(f'layer name {name} not found in {self.name}')
     
-    def get_sub_layers(self):
+    @property
+    def layers(self):
         return self._layers
     
+    @property
+    def nest_layers(self):
+        return tf.nest.flatten(self._layers)
+
+    @property
+    def metrics(self):
+        return self.metrics
+    
+    @property
+    def all_metrics(self):
+        metrics = [m for m in self._metrics.values()]
+        for l in self.nest_layers:
+            metrics.extend(l.all_metrics)
+        return metrics
+
     @need_build
     def load_weights(self, file_path: str, prefix=None, skip_mismatch=False):
         assert file_path.endswith('.npz')

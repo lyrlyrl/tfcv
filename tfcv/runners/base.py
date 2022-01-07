@@ -10,7 +10,7 @@ from tfcv.ops import preprocess_ops
 from tfcv.ops import anchors
 from tfcv.datasets.coco.dataset_parser import preprocess_image
 
-class DetectionTrainer(tfcv.Trainer):
+class DetectionRunner(tfcv.Runner):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         eval_file = os.path.join(self._params.data.dir, self._params.data.val_json)
