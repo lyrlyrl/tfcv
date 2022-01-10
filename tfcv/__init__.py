@@ -8,3 +8,4 @@ from tfcv import models
 from tfcv import datasets
 from tfcv import utils
 from tfcv import hooks
+from tfcv import runtime

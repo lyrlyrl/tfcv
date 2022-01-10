@@ -6,9 +6,11 @@ import shutil
 import glob
 import logging
 
+from tfcv import logger
 from tfcv.distribute import *
 from tfcv.config import update_cfg, config as cfg
-
+from tfcv.exception import NanTrainLoss
+from tfcv.hooks import Logging
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.utils.lazy_import import LazyImport
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
@@ -27,11 +29,6 @@ PARSER.add_argument(
     '--run_id',
     type=int,
     required=True
-)
-PARSER.add_argument(
-    '--multiple_gpus',
-    action='store_true',
-    help='if train with multiple gpus'
 )
 
 def train(run_id):
@@ -64,9 +61,10 @@ def train(run_id):
     hooks = []
     
     trainer = create_trainer(model, optimizer, hooks)
-    trainer.compile()
+    trainer.compile(True)
     train_iter = iter(train_data)
     total_steps = math.ceil(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
+
     trainer.train(total_steps, train_iter)
 
     step = optimizer.iterations.numpy()
@@ -85,25 +83,11 @@ def create_trainer(model, optimizer, hooks=[]):
 
 def initialize(model, opt, run_id):
     all_weight_dir = os.path.join(cfg.model_dir, 'checkpoint')
-    historys = list(map(int, os.listdir(all_weight_dir)))
-
-    history_id = -1
-
-    for i in historys:
-        try:
-            i = int(i)
-            assert i < run_id
-        except:
-            shutil.rmtree(os.path.join(all_weight_dir, i))
-            logging.info(f'unuseful remove{os.path.join(all_weight_dir, i)}')
-            continue
-        if i > history_id:
-            history_id = i
 
     checkpoint = tf.train.Checkpoint(optimizer = opt)
 
-    if history_id >= 0:
-        weight_dir = os.path.join(all_weight_dir, str(run_id))
+    if run_id > 0:
+        weight_dir = os.path.join(all_weight_dir, str(run_id-1))
         np_path_pattern = os.path.join(weight_dir, f'{model.name}-*.npz')
         path = glob.glob(np_path_pattern)[0]
         model.load_weights(path)
@@ -115,8 +99,6 @@ def initialize(model, opt, run_id):
             checkpoint.read(opt_path)
 
     return checkpoint
-
-    
 
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
@@ -130,7 +112,6 @@ if __name__ == '__main__':
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
     
     model_dir = arguments.model_dir
-    model_dir = os.path.abspath(model_dir)
     config_path = os.path.join(model_dir, 'train_config.yaml')
     params = update_cfg(config_path)
     cfg.from_dict(params)
@@ -141,5 +122,17 @@ if __name__ == '__main__':
         cfg.global_train_batch_size = cfg.train_batch_size
     cfg.freeze()
     
+    log_path = os.path.join(model_dir, 'logs', str(arguments.run_id))
+    os.makedirs(log_path, exist_ok=True)
+    if MPI_is_distributed():
+        log_file = os.path.join(log_path, 'run_log.txt')
+    else:
+        log_file = os.path.join(log_path, 'run_log_rank{}.txt'.format(MPI_local_rank()))
+
+    logger_backends = [logger.FileBackend(logger.Verbosity.DEBUG, file_path=log_file, proceed=False)]
+    if not MPI_is_distributed() or MPI_local_rank()==0:
+        logger_backends.append(logger.StdOutBackend(logger.Verbosity.INFO))
+    logger.init(logger_backends)
+
     train(arguments.run_id)
 

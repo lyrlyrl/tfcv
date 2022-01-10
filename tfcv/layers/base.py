@@ -94,7 +94,7 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
     
     @property
     def all_metrics(self):
-        metrics = [m for m in self._metrics.values()]
+        metrics = tf.nest.flatten(self._metrics)
         for l in self.nest_layers:
             metrics.extend(l.all_metrics)
         return metrics

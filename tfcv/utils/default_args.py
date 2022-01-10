@@ -76,6 +76,12 @@ TRAIN_GROUP.add_argument(
     help='Enable automatic mixed precision'
 )
 
+TRAIN_GROUP.add_argument(
+    '--reinitlize',
+    action='store_true',
+    help='Do not checkpoint'
+)
+
 # about evaluate
 EVAL_GROUP.add_argument(
     '--eval_number',

@@ -2,8 +2,12 @@ from typing import Iterable, List, Tuple, Union
 import numpy as np
 import tensorflow as tf
 
+
 from tfcv.layers.base import Layer
 from tfcv.layers.utils import need_build
+from tfcv.distribute import MPI_is_distributed, MPI_size
+from tfcv.utils.lazy_import import LazyImport
+hvd = LazyImport('horovod.tensorflow')
 
 __all__ = ['BatchNormalization']
 
@@ -22,9 +26,11 @@ class BatchNormalization(Layer):
             gamma_initializer: Union[str, tf.keras.initializers.Initializer] ='ones',
             moving_mean_initializer: Union[str, tf.keras.initializers.Initializer] ='zeros',
             moving_variance_initializer: Union[str, tf.keras.initializers.Initializer] ='ones',
-            synchronized=False,
+            synchronized=None,
             trainable=True,
             name=None):
+        if synchronized == None:
+            synchronized = True
         if isinstance(beta_initializer, str):
             beta_initializer = tf.keras.initializers.get(beta_initializer)
         if isinstance(gamma_initializer, str):
@@ -154,10 +160,8 @@ class BatchNormalization(Layer):
         
         if training:
             mean, variance = tf.nn.moments(inputs, red_axes)
-            if self.synchronized:
-                import horovod.tensorflow as hvd
-                assert hvd.is_initialized()
-                if hvd.size()>1:
+            if MPI_is_distributed() and self.synchronized:
+                if MPI_size()>1:
                     # Compute variance using: Var[X] = E[X^2] - E[X]^2.
                     square_of_mean = tf.math.square(mean)
                     mean_of_square = variance + square_of_mean
@@ -165,7 +169,7 @@ class BatchNormalization(Layer):
                     # Average stats across all workers
                     worker_stack = tf.stack([mean, mean_of_square])
                     group_stack = hvd.allreduce(worker_stack, op=hvd.Sum)
-                    group_stack /= hvd.size()
+                    group_stack /= MPI_size()
                     group_mean, group_mean_of_square = tf.unstack(group_stack)
                     group_variance = group_mean_of_square - tf.math.square(group_mean)
 
