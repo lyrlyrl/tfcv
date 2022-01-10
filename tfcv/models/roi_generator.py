@@ -43,6 +43,8 @@ class RoiGenerator(Layer):
             bbox_reg_weights=None,
         )
         return (rpn_box_scores, rpn_box_rois)
+    def _build(self, inputs, training=None):
+        self._output_specs = self.compute_output_specs(inputs)
     def compute_output_specs(self, input_shape, training=True):
         batch_size = input_shape[0].values()[0][0]
         post_nms_topn = self.train_post_nms_topn if training else self.test_post_nms_topn

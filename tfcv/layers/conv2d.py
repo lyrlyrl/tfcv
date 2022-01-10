@@ -93,7 +93,7 @@ class Conv2D(Layer):
             outputs = tf.nn.bias_add(outputs, self.bias, data_format=self.data_format)
         return outputs
 
-    def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
+    def _build(self, input_shape: Union[List, Tuple, np.ndarray], training=None):
         if isinstance(input_shape, np.ndarray):
             input_shape = input_shape.to_list()
         else:
@@ -190,7 +190,7 @@ class Conv2DTranspose(Conv2D):
                                 str(output_padding))
         self.output_padding = output_padding
 
-    def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
+    def _build(self, input_shape: Union[List, Tuple, np.ndarray], training=None):
         self._output_specs = self.compute_output_specs(input_shape)
         if self.data_format == 'NHWC':
             axis = -1

@@ -25,7 +25,7 @@ class FPN(Layer):
         self._init(locals())
         super().__init__(trainable=trainable, name=name)
 
-    def _build(self, input_shape: Mapping):
+    def _build(self, input_shape: Mapping, training=None):
         backbone_max_level = max(list(map(int, list(input_shape.keys()))))
         
         self.upsample_max_level = backbone_max_level if self.max_level > backbone_max_level else self.max_level

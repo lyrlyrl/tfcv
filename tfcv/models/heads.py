@@ -48,7 +48,7 @@ class RPNHead(Layer):
             name = 'rpn_box'
         )
     
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             self._layers['rpn_conv'].build(input_shape)
             output_specs = self._layers['rpn_conv'].output_specs
@@ -87,7 +87,7 @@ class MultilevelRPNHead(RPNHead):
         for level in range(self.min_level, self.max_level+1):
             scores[str(level)], bboxes[str(level)] = super(MultilevelRPNHead, self).compute_output_specs(input_shape[str(level)])
         return (scores, bboxes)
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             self._layers['rpn_conv'].build(list(input_shape.values())[0])
             output_specs = self._layers['rpn_conv'].output_specs
@@ -128,7 +128,7 @@ class FCBoxHead(Layer):
             kernel_initializer=tf.random_normal_initializer(stddev=0.001),
             trainable=trainable, name='box_predict')
 
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         batch_size, num_rois, height, width, filters = input_shape
         with tf.name_scope(self.name):
             self._layers['fc6'].build([batch_size, num_rois, height * width * filters])
@@ -290,7 +290,7 @@ class MaskHead(Layer):
 
         return mask_outputs
     
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         batch_size, num_rois, height, width, filters = input_shape
         resized_input_shape = [batch_size * num_rois if num_rois != None else None, height, width, filters]
         with tf.name_scope(self.name):

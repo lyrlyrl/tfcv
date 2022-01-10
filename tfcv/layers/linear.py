@@ -33,7 +33,7 @@ class Linear(Layer):
         else:
             return tf.matmul(inputs, self.kernel)
     
-    def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
+    def _build(self, input_shape: Union[List, Tuple, np.ndarray], training=True):
         if isinstance(input_shape, np.ndarray):
             input_shape = input_shape.to_list()
         else:

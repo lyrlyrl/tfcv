@@ -53,7 +53,7 @@ class Pooling2D(Layer):
             data_format=self.data_format)
         return outputs
 
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         self._output_specs = self.compute_output_specs(input_shape)
     
     def compute_output_specs(self, input_shape):

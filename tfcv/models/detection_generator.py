@@ -76,5 +76,9 @@ class DetectionGenerator(Layer):
             post_nms_boxes = box_utils.to_absolute_coordinates(post_nms_boxes, height, width)
 
         return post_nms_num_valid_boxes, post_nms_boxes, tf.cast(post_nms_classes, dtype=tf.float32), post_nms_scores
+    
+    def _build(self, inputs, training=None):
+        self._output_specs = self.compute_output_specs(inputs)
+    
     def compute_output_specs(self, input_shape):
         pass

@@ -95,7 +95,7 @@ class Conv2DBlock(Layer):
                 synchronized=self.synchronized and self.trainable,
                 trainable=self.trainable and (not self.freeze_bn)
             )
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             self._layers['conv2d'].build(input_shape)
             output_specs = self._layers['conv2d'].output_specs
@@ -152,7 +152,7 @@ class BottleneckBlock(Layer):
                     norm_momentum, norm_epsilon, trainable=trainable, name='shortcut'
                 )
     
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             if self.use_projection:
                 self._layers['shortcut'].build(input_shape)
@@ -220,7 +220,7 @@ class BlockGroup(Layer):
                 trainable=trainable,
                 name=f'block{str(i)}'
             )
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             for i in range(self.block_repeats):
                 self._layers[f'block{str(i)}'].build(input_shape)
@@ -298,7 +298,7 @@ class ResNet(Layer):
             self._layers['avgpool2d'] = GlobalAveragePooling2D(data_format)
             self._layers['linear'] = Linear(num_classes, name='linear')
     
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=None):
         with tf.name_scope(self.name):
             for layer in self._layers.values():
                 layer.build(input_shape)

@@ -224,7 +224,7 @@ class GenelizedRCNN(Layer):
 
         return outputs
 
-    def _build(self, input_shape):
+    def _build(self, input_shape, training=True):
         batch_size, image_height, image_width, _ = input_shape
         self.anchor_boxes = anchors.Anchors(
             self.cfg.min_level, 
@@ -235,14 +235,15 @@ class GenelizedRCNN(Layer):
             (image_height, image_width)
         ).get_unpacked_boxes()
         with tf.name_scope(self.name):
-            self._layers['backbone'].build(input_shape)
-            self._layers['fpn'].build(self._layers['backbone'].output_specs)
-            self._layers['rpn_head'].build(self._layers['fpn'].output_specs)
-            self._output_specs = self._layers['rpn_head'].output_specs
+            self._layers['backbone'].build(input_shape, training=training)
+            self._layers['fpn'].build(self._layers['backbone'].output_specs, training=training)
+            self._layers['rpn_head'].build(self._layers['fpn'].output_specs, training=training)
+
             self._layers['box_head'].build(
                 [batch_size, None] +
                 [self._layers['roi_aligner'].output_size]*2 +
                 [self._layers['fpn'].num_filters])
+                
             if self.cfg.include_mask:
                 self._layers['mask_head'].build(
                     [batch_size, None] +

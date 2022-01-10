@@ -6,6 +6,7 @@ import shutil
 import glob
 import logging
 
+from tfcv.distribute import *
 from tfcv.config import update_cfg, config as cfg
 
 from tfcv.datasets.coco.dataset import Dataset
@@ -33,11 +34,11 @@ PARSER.add_argument(
     help='if train with multiple gpus'
 )
 
-def train(run_id, mg=False):
+def train(run_id):
     dataset = Dataset()
     train_data = dataset.train_fn(
         cfg.train_batch_size, 
-        shard=(hvd.size(), hvd.local_rank()) if mg else None)
+        shard=(MPI_size(), MPI_local_rank()) if MPI_is_distributed() else None)
 
     learning_rate = PiecewiseConstantWithWarmupSchedule(
         init_value=cfg.optimization.init_learning_rate,
@@ -120,12 +121,12 @@ def initialize(model, opt, run_id):
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
 
-    if arguments.multiple_gpus:
+    if MPI_is_distributed():
         hvd.init()
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-    if gpus and arguments.multiple_gpus:
+    if gpus and MPI_is_distributed():
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
     
     model_dir = arguments.model_dir
@@ -134,11 +135,11 @@ if __name__ == '__main__':
     params = update_cfg(config_path)
     cfg.from_dict(params)
     cfg.model_dir = model_dir
-    if arguments.multiple_gpus:
+    if MPI_is_distributed():
         cfg.global_train_batch_size = cfg.train_batch_size * hvd.size()
     else:
         cfg.global_train_batch_size = cfg.train_batch_size
     cfg.freeze()
     
-    train(arguments.run_id, arguments.multiple_gpus)
+    train(arguments.run_id)
 

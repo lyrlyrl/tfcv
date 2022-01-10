@@ -49,7 +49,7 @@ class BatchNormalization(Layer):
         with tf.name_scope('AssignMovingAvg') as scope:
             return variable.assign_sub(calculate_update_delta(), name=scope)
 
-    def _build(self, input_shape: Union[List, Tuple, np.ndarray]):
+    def _build(self, input_shape: Union[List, Tuple, np.ndarray], training=True):
         if isinstance(input_shape, np.ndarray):
             input_shape = input_shape.to_list()
         else:
