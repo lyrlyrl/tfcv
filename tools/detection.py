@@ -51,16 +51,18 @@ if __name__ == '__main__':
             if run_id not in run_ids:
                 break
             train_command = f'python3 -m tfcv.runtime.train_detection --model_dir {model_dir} --run_id {str(run_id)}'
+            prefix = 'TF_XLA_FLAGS="--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit" '
             if len(arguments.gpu_ids) > 1:
                 n = len(arguments.gpu_ids)
-                prefix = f'CUDA_VISIBLE_DEVICES={",".join(arguments.gpu_ids)} horovodrun -np {n} -H localhost:{n} '
+                prefix = prefix + f'CUDA_VISIBLE_DEVICES={",".join(arguments.gpu_ids)} horovodrun -np {n} -H localhost:{n} '
                 train_command = prefix + train_command
             train_result = subprocess.run(train_command, capture_output=True)
             if train_result.returncode == 0:
                 logging.info('train epoch finished')
             else:
                 pass
-            eval_command = f'python3 -m tfcv.runtime.evaluate_detection --model_dir {model_dir} --eval_id {str(run_id)}'
+            prefix = 'TF_XLA_FLAGS="--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit" '
+            eval_command = prefix + f'python3 -m tfcv.runtime.evaluate_detection --model_dir {model_dir} --eval_id {str(run_id)}'
             eval_result = subprocess.run(eval_command, capture_output=True)
             if eval_result.returncode == 0:
                 logging.info('eval of epoch finished')

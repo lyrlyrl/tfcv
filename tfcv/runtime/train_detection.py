@@ -9,14 +9,13 @@ import logging
 from tfcv import logger
 from tfcv.distribute import *
 from tfcv.config import update_cfg, config as cfg
-from tfcv.exception import NanTrainLoss
-from tfcv.hooks import Logging
-from tfcv.datasets.coco.dataset import Dataset
-from tfcv.utils.lazy_import import LazyImport
-from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
 
+from tfcv.utils.lazy_import import LazyImport
 hvd = LazyImport('horovod.tensorflow')
 
+from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
+from tfcv.datasets.coco.dataset import Dataset
+from tfcv.runners.genelized_rcnn import GenelizedRCNNRunner
 PARSER = argparse.ArgumentParser(
     description='as child process'
 )
@@ -59,8 +58,9 @@ def train(run_id):
     checkpoint = initialize(model, optimizer, run_id)
 
     hooks = []
-    
-    trainer = create_trainer(model, optimizer, hooks)
+    metrics = create_metrics()
+    trainer = create_trainer(model, optimizer, metrics, hooks)
+
     trainer.compile(True)
     train_iter = iter(train_data)
     total_steps = math.ceil(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
@@ -78,8 +78,21 @@ def train(run_id):
 def create_model():
     pass
 
-def create_trainer(model, optimizer, hooks=[]):
-    pass
+def create_metrics():
+    metrics = {'l2_loss': tf.keras.metrics.Mean(name = 'l2_loss')}
+    if cfg.meta_arch == 'genelized_rcnn':
+        metrics.update({
+            'fast_rcnn_class_loss': tf.keras.metrics.Mean(name = 'fast_rcnn_class_loss'),
+            'fast_rcnn_box_loss': tf.keras.metrics.Mean(name = 'fast_rcnn_box_loss'),
+            'rpn_score_loss': tf.keras.metrics.Mean(name = 'rpn_score_loss'),
+            'rpn_box_loss': tf.keras.metrics.Mean(name = 'rpn_box_loss')
+        })
+        if cfg.include_mask:
+            metrics['mask_loss'] = tf.keras.metrics.Mean(name = 'mask_loss')
+    return metrics
+def create_trainer(model, optimizer, metrics={}, hooks=[]):
+    if cfg.meta_arch == 'genelized_rcnn':
+        trainer = GenelizedRCNNRunner(cfg, model, optimizer, metrics, hooks)
 
 def initialize(model, opt, run_id):
     all_weight_dir = os.path.join(cfg.model_dir, 'checkpoint')
@@ -125,9 +138,9 @@ if __name__ == '__main__':
     log_path = os.path.join(model_dir, 'logs', str(arguments.run_id))
     os.makedirs(log_path, exist_ok=True)
     if MPI_is_distributed():
-        log_file = os.path.join(log_path, 'run_log.txt')
+        log_file = os.path.join(log_path, 'train_log.txt')
     else:
-        log_file = os.path.join(log_path, 'run_log_rank{}.txt'.format(MPI_local_rank()))
+        log_file = os.path.join(log_path, 'train_log_rank{}.txt'.format(MPI_local_rank()))
 
     logger_backends = [logger.FileBackend(logger.Verbosity.DEBUG, file_path=log_file, proceed=False)]
     if not MPI_is_distributed() or MPI_local_rank()==0:
