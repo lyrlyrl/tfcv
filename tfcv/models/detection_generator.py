@@ -77,8 +77,13 @@ class DetectionGenerator(Layer):
 
         return post_nms_num_valid_boxes, post_nms_boxes, tf.cast(post_nms_classes, dtype=tf.float32), post_nms_scores
     
-    def _build(self, inputs, training=None):
-        self._output_specs = self.compute_output_specs(inputs)
+    def _build(self, batch_size, training=None):
+        self._output_specs = self.compute_output_specs(batch_size)
     
-    def compute_output_specs(self, input_shape):
-        pass
+    def compute_output_specs(self, batch_size):
+        return {
+            'num_detections': [batch_size],
+            'detection_boxes': [batch_size, self.post_nms_num_detections, 4],
+            'detection_classes': [batch_size, self.post_nms_num_detections],
+            'detection_scores': [batch_size, self.post_nms_num_detections],
+        }

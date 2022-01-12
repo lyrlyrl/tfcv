@@ -93,45 +93,39 @@ class BatchNormalization(Layer):
 
         with tf.name_scope(self.name):
             if self.scale:
-                self.gamma = tf.Variable(
-                    initial_value=self.gamma_initializer(
-                        shape = param_shape,
-                        dtype = tf.float32
-                    ),
-                    trainable=True,
-                    name='gamma'
+                self.gamma = self.add_weight(
+                    name = 'gamma',
+                    shape = param_shape,
+                    dtype = tf.float32,
+                    trainable = True,
+                    initializer = self.gamma_initializer
                 )
             else:
                 self.gamma = None
 
             if self.center:
-                self.beta = tf.Variable(
-                    initial_value = self.beta_initializer(
-                        shape = param_shape,
-                        dtype = tf.float32
-                    ),
-                    trainable=True,
-                    name='beta'
+                self.beta = self.add_weight(
+                    name = 'beta',
+                    shape = param_shape,
+                    dtype = tf.float32,
+                    trainable = True,
+                    initializer = self.beta_initializer
                 )
             else:
                 self.beta = None
-            
-            self.moving_mean = tf.Variable(
-                initial_value = self.moving_mean_initializer(
-                    shape = param_shape,
-                    dtype = tf.float32
-                ),
-                trainable=False,
-                name='moving_mean'
+            self.moving_mean = self.add_weight(
+                name = 'moving_mean',
+                shape = param_shape,
+                dtype = tf.float32,
+                trainable = False,
+                initializer = self.moving_mean_initializer
             )
-
-            self.moving_variance = tf.Variable(
-                initial_value = self.moving_variance_initializer(
-                    shape = param_shape,
-                    dtype = tf.float32
-                ),
-                trainable=False,
-                name='moving_variance'
+            self.moving_variance = self.add_weight(
+                name = 'moving_variance',
+                shape = param_shape,
+                dtype = tf.float32,
+                trainable = False,
+                initializer = self.moving_variance_initializer
             )
         self._output_specs = input_shape
     def compute_output_specs(self, input_shape):

@@ -109,20 +109,21 @@ class Conv2D(Layer):
         kernel_shape = self.kernel_size + [input_channel, self.filters]
 
         with tf.name_scope(self.name):
-            self.kernel = tf.Variable(
-                initial_value = self.kernel_initializer(
-                    shape = kernel_shape,
-                    dtype = tf.float32),
+            self.kernel = self.add_weight(
+                name = 'kernel',
+                shape = kernel_shape,
+                dtype = tf.float32,
                 trainable = True,
-                name = 'kernel'
+                initializer = self.kernel_initializer
             )
+
             if self.use_bias:
-                self.bias = tf.Variable(
-                    initial_value = self.bias_initializer(
-                        shape = (self.filters,),
-                        dtype = tf.float32),
+                self.bias = self.add_weight(
+                    name = 'bias',
+                    shape = (self.filters,),
+                    dtype = tf.float32,
                     trainable = True,
-                    name = 'bias'
+                    initializer = self.bias_initializer
                 )
                 
     def compute_output_specs(self, input_shape):

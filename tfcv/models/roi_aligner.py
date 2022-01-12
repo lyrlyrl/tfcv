@@ -17,7 +17,7 @@ class RoiAligner(Layer):
         )
     def _build(self, inputs, training=None):
         self._output_specs = self.compute_output_specs(inputs)
-    def compute_output_specs(self, input_shape):
+    def compute_output_specs(self, input_shape, training=None):
         feature_shape, box_shape = input_shape
         batch_size, num_boxes = box_shape[0:2]
         feature_size = list(feature_shape.values())[0][-1]

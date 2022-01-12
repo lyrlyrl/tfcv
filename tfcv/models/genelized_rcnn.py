@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from tfcv.layers.base import Layer
-from tfcv.layers.utils import need_build
+from tfcv.layers.utils import need_build, build_layers, compute_sequence_output_specs
 from tfcv.models.heads import FCBoxHead, MultilevelRPNHead, MaskHead
 from tfcv.models.roi_generator import RoiGenerator
 from tfcv.models.roi_aligner import RoiAligner
@@ -23,7 +23,7 @@ class GenelizedRCNN(Layer):
         self._init(locals())
         super(GenelizedRCNN, self).__init__(trainable=trainable, name=name)
         self._init_layers()
-
+        
     def _init_layers(self):
         self._init_backbone()
         self._init_box_layers()
@@ -197,7 +197,7 @@ class GenelizedRCNN(Layer):
         )
 
         mask_outputs = self._layers['mask_head'](
-            mask_roi_features, 
+            mask_roi_features,
             class_indices,
             training=training
         )
@@ -235,21 +235,52 @@ class GenelizedRCNN(Layer):
             (image_height, image_width)
         ).get_unpacked_boxes()
         with tf.name_scope(self.name):
-            self._layers['backbone'].build(input_shape, training=training)
-            self._layers['fpn'].build(self._layers['backbone'].output_specs, training=training)
-            self._layers['rpn_head'].build(self._layers['fpn'].output_specs, training=training)
-
-            self._layers['box_head'].build(
-                [batch_size, None] +
-                [self._layers['roi_aligner'].output_size]*2 +
-                [self._layers['fpn'].num_filters])
-                
+            build_layers([
+                self._layers['backbone'],self._layers['fpn'],self._layers['rpn_head']
+            ], input_shape)
+            self._layers['roi_generator'].build(batch_size, training=training)
+            self._layers['proposal'].build(batch_size, training=training)
+            self._layers['roi_aligner'].build([
+                self._layers['fpn'].output_specs,
+                self._layers['proposal'].output_specs[2]], training=training)
+            self._layers['box_head'].build(self._layers['roi_aligner'].output_specs, training=training)
+            if not training:
+                self._layers['detection_generator'].build(batch_size)
             if self.cfg.include_mask:
+                self._layers['mask_roi_aligner'].build([
+                    self._layers['fpn'].output_specs,
+                    [batch_size, int(self.cfg.proposal.batch_size_per_im * self.cfg.proposal.fg_fraction) if training else 100, 4]
+                ])
                 self._layers['mask_head'].build(
-                    [batch_size, None] +
-                    [self._layers['mask_roi_aligner'].output_size] * 2 +
-                    [self._layers['fpn'].num_filters])
+                    self._layers['mask_roi_aligner'].output_specs, training=training)
+        self._output_specs = self.compute_output_specs(input_shape, training=training)
     
-    def compute_output_specs(self, input_shape):
-        pass
-            
+    def compute_output_specs(self, input_shape, training=None):
+        batch_size = input_shape[0]
+        if training:
+            rpn_scores, rpn_boxes = compute_sequence_output_specs([
+                self._layers['backbone'],self._layers['fpn'],self._layers['rpn_head']
+            ], input_shape)
+            outputs = {
+                'rpn_score_outputs': rpn_scores,
+                'rpn_box_outputs': rpn_boxes,
+                'class_outputs': [batch_size, self.cfg.proposal.batch_size_per_im, self.cfg.num_classes],
+                'box_outputs': [batch_size, self.cfg.proposal.batch_size_per_im, self.cfg.num_classes * 4],
+                'class_targets': [batch_size, self.cfg.proposal.batch_size_per_im],
+                'box_targets': [batch_size, self.cfg.proposal.batch_size_per_im, 4],
+                'box_rois': [batch_size, self.cfg.proposal.batch_size_per_im, 4],
+            }
+            if self.cfg.include_mask:
+                max_num_fg=int(self.cfg.proposal.batch_size_per_im * self.cfg.proposal.fg_fraction)
+                outputs.update({
+                    'mask_outputs': [batch_size, max_num_fg, self.cfg.mrcnn.resolution, self.cfg.mrcnn.resolution],
+                    'mask_targets': [batch_size, max_num_fg, self.cfg.mrcnn.resolution, self.cfg.mrcnn.resolution],
+                    'selected_class_targets': [batch_size, max_num_fg],
+                })
+            return outputs
+
+        else:
+            outputs = self._layers['detection_generator'].compute_output_specs(batch_size)
+            if self.cfg.include_mask:
+                outputs['detection_masks'] = self._layers['mask_head'].compute_output_specs([batch_size, self._layers['detection_generator'].post_nms_num_detections])
+            return outputs

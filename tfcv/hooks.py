@@ -8,22 +8,21 @@ import yaml
 
 from tfcv.distribute import *
 from tfcv.exception import NanTrainLoss
-from tfcv.core.runner import Runner
 
 __all__ = ['HookList', 'Hook']
 
 class HookList(object):
 
-    def __init__(self, hooks, trainer=None):
+    def __init__(self, hooks, runner=None):
         self._logger = logging.getLogger(name = 'hook')
         self.hooks=tf.nest.flatten(hooks) if hooks else []
-        if trainer:
-            self.set_trainer(trainer)
+        if runner:
+            self.set_runner(runner)
 
-    def set_trainer(self, trainer: Runner):
-        self.trainer=trainer
+    def set_runner(self, runner):
+        self.runner=runner
         for cb in self.hooks:
-            cb.set_trainer(trainer)
+            cb.set_runner(runner)
 
     def before_train(self, train_steps):
         for cb in self.hooks:
@@ -71,8 +70,8 @@ class Hook(object):
     @property
     def chief_only(self):
         return self._chief_only
-    def set_trainer(self, trainer: Runner):
-        self.trainer=trainer
+    def set_runner(self, runner):
+        self.runner=runner
     def before_train(self, train_steps):
         pass
     def before_epoch(self, steps, current_step, epoch_number):
@@ -87,43 +86,6 @@ class Hook(object):
         pass
     def after_evaluate(self, outputs):
         pass
-
-class TrainCheckpoint(Hook):
-
-    def __init__(
-            self,
-            checkpoint: tf.train.Checkpoint,
-            model_dir,
-            ckpt_subdir,
-            ckpt_name='ckpt',
-            best_metric=None,
-            best_subdir='best',
-            initialize_fn=None):
-        super().__init__(name='best_model')
-        self._trained = False
-        self._best_metric = best_metric
-        self._ckpt_path = os.path.join(model_dir, ckpt_subdir, ckpt_name)
-        self._best_dir = os.path.join(model_dir, best_subdir)
-        self._best_result_dir = os.path.join(self._best_dir, 'best.yaml')
-        if not os.path.isdir(self._best_dir):
-            os.makedirs(self._best_dir)
-            self.best_results={}
-        else:
-            if os.path.isfile(self._best_result_dir):
-                with open(self._best_result_dir, 'r') as fp:
-                    self.best_results = yaml.load(fp, Loader=yaml.CLoader)
-        self._initialize_fn = initialize_fn
-
-    def set_trainer(self, trainer):
-        super().set_trainer(trainer)
-        self._checkpoint = tf.train.Checkpoint(model=self.trainer.model, optimizer=self.trainer.optimizer)
-
-    def before_train(self, *args, **kwargs):
-        self._trained = True
-
-    def after_evaluate(self, outputs):
-        if self._trained:
-            pass
 
 class Logging(Hook):
     def __init__(
@@ -159,6 +121,6 @@ class Logging(Hook):
         logs.update(metrics)
         logs['train_throuput'] = train_throuput
         logs['train_loss'] = train_loss
-        lr = float(self.trainer.optimizer._decayed_lr(tf.float32))
+        lr = float(self.runner.optimizer._decayed_lr(tf.float32))
         logs['learning_rate'] = lr
         self._log(self._epoch_finish, logs)

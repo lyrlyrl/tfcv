@@ -23,8 +23,8 @@ class GenelizedRCNNRunner(DetectionRunner):
         losses = self._build_loss(model_outputs, inputs)
         losses['l2_regularization_loss'] = tf.add_n([
             tf.nn.l2_loss(tf.cast(v, dtype=tf.float32))
-            for v in self._model.trainable_variables
-            if not any([pattern in v.name for pattern in ["batch_normalization", "bias", "beta"]])
+            for v in self._model.trainable_weights
+            if not any([pattern in v.name for pattern in ["bn", "bias", "beta"]])
         ]) * self._params.loss.l2_weight_decay
 
         raw_loss = tf.math.reduce_sum(list(losses.values()))

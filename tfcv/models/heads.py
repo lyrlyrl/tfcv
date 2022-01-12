@@ -298,7 +298,8 @@ class MaskHead(Layer):
                 [self._layers[f'mask_conv{str(conv_id)}'] for conv_id in range(4)] + [self._layers['mask_deconv'], self._layers['mask_fcn_logits']],
                 resized_input_shape
             )
-        self._output_specs = self._layers['mask_fcn_logits'].output_specs
+        self._output_specs = self.compute_output_specs(input_shape)
 
     def compute_output_specs(self, input_shape):
-        pass
+        batch_size, num_rois = input_shape[0:2]
+        return [batch_size, num_rois, self.mrcnn_resolution, self.mrcnn_resolution]

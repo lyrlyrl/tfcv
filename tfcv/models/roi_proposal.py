@@ -27,11 +27,9 @@ class RoiProposal(Layer):
             bg_thresh_lo=self.bg_thresh_lo
         )
         return (box_targets, class_targets, rpn_box_rois, proposal_to_label_map)
-    def _build(self, inputs, training=None):
-        self._output_specs = self.compute_output_specs(inputs)
-    def compute_output_specs(self, input_shape):
-        batch_size = input_shape[0]
-
+    def _build(self, batch_size, training=None):
+        self._output_specs = self.compute_output_specs(batch_size)
+    def compute_output_specs(self, batch_size):
         return (
             [batch_size, self.batch_size_per_im, 4],
             [batch_size, self.batch_size_per_im,],

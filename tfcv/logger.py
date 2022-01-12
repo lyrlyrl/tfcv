@@ -23,10 +23,7 @@ class Backend(ABC):
     @abstractmethod
     def log(self, timestamp, elapsedtime, step, data):
         pass
-
-    @abstractmethod
-    def metadata(self, timestamp, elapsedtime, metric, metadata):
-        pass
+    
 
 class Logger:
     def __init__(self, backends):
@@ -36,6 +33,17 @@ class Logger:
     def flush(self):
         for b in self.backends:
             b.flush()
+    def metric(self, key, data, step=tuple()):
+        self.log(step, f'{key}: {str(data)}')
+    def metrics(self, data, step=tuple()):
+        assert isinstance(data, Mapping)
+        for k, v in data.items():
+            self.metric(k, v, step)
+    def finalize(self, success, step=tuple()):
+        if success == True:
+            self.log(step, {'status': 'success'})
+        else:
+            self.log(step, {'status': 'failed', 'callback': success})
     def log(self, step, data, verbosity=1):
         timestamp = datetime.now()
         elapsedtime = (timestamp - self.starttime).total_seconds()
@@ -77,7 +85,7 @@ class StdOutBackend(Backend):
                 self.step_format(step),
                 " ".join(
                     [
-                        self.metric_format(m, self._metadata[m], v)
+                        self.metric_format(m, v)
                         for m, v in data.items()
                     ]
                 ),
@@ -98,7 +106,7 @@ class FileBackend(Backend):
         self.file = open(self._file_path, 'a' if proceed else 'w')
         atexit.register(self.file.close)
     def log(self, timestamp, elapsedtime, step, data):
-        'LOG {}\n'.format(
+        self.file.write('LOG {}\n'.format(
             json.dumps(
                 dict(
                     timestamp=str(timestamp.timestamp()),
@@ -109,7 +117,7 @@ class FileBackend(Backend):
                     data=data,
                 )
             )
-        )
+        ))
     def flush(self):
         self.file.flush()
 

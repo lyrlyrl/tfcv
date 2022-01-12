@@ -16,6 +16,8 @@ hvd = LazyImport('horovod.tensorflow')
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.runners.genelized_rcnn import GenelizedRCNNRunner
+from tfcv.models.genelized_rcnn import GenelizedRCNN
+
 PARSER = argparse.ArgumentParser(
     description='as child process'
 )
@@ -52,8 +54,8 @@ def train(run_id):
         momentum=cfg.optimization.momentum
     )
 
-    model = create_model()
-    model.build(True)
+    model = create_model(True)
+    print(len(model.trainable_weights))
     
     checkpoint = initialize(model, optimizer, run_id)
 
@@ -63,6 +65,7 @@ def train(run_id):
 
     trainer.compile(True)
     train_iter = iter(train_data)
+
     total_steps = math.ceil(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
 
     trainer.train(total_steps, train_iter)
@@ -75,11 +78,19 @@ def train(run_id):
     checkpoint.write(os.path.join(cfg.model_dir, 'checkpoint', 'optimizer', 'opt'))
 
 
-def create_model():
-    pass
+def create_model(training=True):
+    batch_size = cfg.train_batch_size if training else cfg.eval_batch_size
+    if cfg.meta_arch == 'genelized_rcnn':
+        model = GenelizedRCNN(cfg)
+        input_size = list(cfg.data.image_size)
+        if len(input_size) == 2:
+            input_size.append(3)
+        input_size = [batch_size] + input_size
+        model.build(input_size, training=training)
+    return model
 
 def create_metrics():
-    metrics = {'l2_loss': tf.keras.metrics.Mean(name = 'l2_loss')}
+    metrics = {'l2_regularization_loss': tf.keras.metrics.Mean(name = 'l2_regularization_loss')}
     if cfg.meta_arch == 'genelized_rcnn':
         metrics.update({
             'fast_rcnn_class_loss': tf.keras.metrics.Mean(name = 'fast_rcnn_class_loss'),
@@ -89,10 +100,15 @@ def create_metrics():
         })
         if cfg.include_mask:
             metrics['mask_loss'] = tf.keras.metrics.Mean(name = 'mask_loss')
+        metrics = list(metrics.values())
     return metrics
+
 def create_trainer(model, optimizer, metrics={}, hooks=[]):
+
     if cfg.meta_arch == 'genelized_rcnn':
         trainer = GenelizedRCNNRunner(cfg, model, optimizer, metrics, hooks)
+    
+    return trainer
 
 def initialize(model, opt, run_id):
     all_weight_dir = os.path.join(cfg.model_dir, 'checkpoint')
@@ -114,6 +130,11 @@ def initialize(model, opt, run_id):
     return checkpoint
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.INFO,
+        format='{asctime} {levelname:.1} {name:15} {message}',
+        style='{'
+    )
     arguments = PARSER.parse_args()
 
     if MPI_is_distributed():
@@ -123,7 +144,7 @@ if __name__ == '__main__':
         tf.config.experimental.set_memory_growth(gpu, True)
     if gpus and MPI_is_distributed():
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
-    
+
     model_dir = arguments.model_dir
     config_path = os.path.join(model_dir, 'train_config.yaml')
     params = update_cfg(config_path)

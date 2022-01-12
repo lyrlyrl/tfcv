@@ -71,9 +71,10 @@ class Dataset:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
 
-        data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         data = data.with_options(self._data_options)
-
+        data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # data = data.apply(tf.data.experimental.prefetch_to_device("/cpu:0"))
+        
         return data
 
     def eval_fn(self, batch_size, shard = None):
@@ -125,7 +126,7 @@ class Dataset:
 
         data_options.experimental_optimization.parallel_batch = True
         data_options.experimental_slack = True
-        data_options.experimental_threading.max_intra_op_parallelism = 1
+        data_options.threading.max_intra_op_parallelism = 1
         data_options.experimental_optimization.map_parallelization = True
 
         # map_vectorization_options = tf.data.experimental.MapVectorizationOptions()

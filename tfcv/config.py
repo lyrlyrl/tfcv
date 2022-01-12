@@ -100,9 +100,6 @@ def update_cfg(config_file):
 def setup_args(arguments, cfg):
     if arguments.seed:
         cfg.seed = arguments.seed
-    cfg.xla = arguments.xla
-    cfg.amp = arguments.amp
     cfg.steps_per_loop = arguments.steps_per_loop
-    cfg.num_gpus = arguments.num_gpus
     if arguments.config_override:
         cfg.update_args(arguments.config_override)

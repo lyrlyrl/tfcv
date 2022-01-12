@@ -3,11 +3,12 @@ import abc
 import tensorflow as tf
 import numpy as np
 import logging
-
+from typing import List
 import time
 
 from tfcv.distribute import *
 from tfcv.exception import NanTrainLoss
+from tfcv.hooks import *
 from tfcv.utils.progress import get_tqdm
 from tfcv.utils.lazy_import import LazyImport
 hvd = LazyImport('horovod.tensorflow')
@@ -28,7 +29,7 @@ class Runner(tf.Module, metaclass=abc.ABCMeta):
             model: tf.keras.Model,
             optimizer=None,
             metrics=[],
-            hooks=None,
+            hooks: List[Hook] =[],
             mg=False):
         super(Runner, self).__init__(name='runner')
         self._params = params
@@ -44,9 +45,8 @@ class Runner(tf.Module, metaclass=abc.ABCMeta):
         
         self._train_timer = 0
 
-        self.hooks = hooks
-        if self.hooks:
-            self.hooks.set_runner(self)
+        self.hooks = HookList(hooks)
+        self.hooks.set_runner(self)
         
         self._mg = mg
 
@@ -84,11 +84,9 @@ class Runner(tf.Module, metaclass=abc.ABCMeta):
             steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
             self.hooks.before_epoch(steps_to_run, current_step, epoch_number)            
             self.train_loop_begin()
-                 
-            for _ in get_tqdm(
-                    range(steps_to_run),
-                    desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
-                outputs = self._train_op(train_iterator)
+                
+            for _ in range(steps_to_run):
+                outputs = self._train_op(next(train_iterator))
                 self.hooks.after_train_batch(outputs)
 
             train_throuput, train_loss, metrics = self.train_loop_end()
@@ -109,9 +107,9 @@ class Runner(tf.Module, metaclass=abc.ABCMeta):
             loss = raw_loss
         if MPI_is_distributed():
             tape = hvd.DistributedGradientTape(tape)
-        trainable_variables = self._model.trainable_variables
-        grads = tape.gradient(loss, trainable_variables)
-        self._optimizer.apply_gradients(list(zip(grads, trainable_variables)))
+        trainable_weights = self._model.trainable_weights
+        grads = tape.gradient(loss, trainable_weights)
+        self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
         self._train_loss.update_state(raw_loss)
         for metric in self._metrics:
             metric.update_state(to_update[metric.name])
@@ -130,11 +128,12 @@ class Runner(tf.Module, metaclass=abc.ABCMeta):
         for metric in self._model.all_metrics:
             metric.reset_state()
 
+        self._logger.info('train loop start')
         self._train_timer = time.time()
     
     def train_loop_end(self):
         times = time.time() - self._train_timer
-
+        self._logger.info('train loop end')
         throuput = self._params.global_train_batch_size * self._params.solver.steps_per_loop / times
         train_loss = self._train_loss.result().numpy()
         

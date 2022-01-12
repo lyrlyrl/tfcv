@@ -27,6 +27,8 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
         self._metrics = dict()
         self._built = False
         self._trainable = trainable
+        self._trainable_weights = []
+        self._untrainable_weights = []
 
     def _init(self, params=None):
         if params:
@@ -34,12 +36,43 @@ class Layer(tf.Module, metaclass = abc.ABCMeta):
                 if k not in NOT_AUTO_INIT and not k.startswith('_'):
                     setattr(self, k, v)
 
+    def add_weight(
+        self,
+        name=None,
+        shape=None,
+        dtype=None,
+        initializer=None,
+        trainable=None):
+        variable = tf.Variable(
+            initial_value = initializer(
+                shape = shape,
+                dtype = dtype),
+            trainable = trainable,
+            name = name
+        )
+        if trainable:
+            self._trainable_weights.append(variable)
+        else:
+            self._untrainable_weights.append(variable)
+        return variable
+        
     @property
     def output_specs(self):
         if not self._built:
             logging.warn('layer not built yet')
         return self._output_specs
-
+    @property
+    def trainable_weights(self):
+        weights = self._trainable_weights
+        for l in self.nest_layers:
+            weights.extend(l.trainable_weights)
+        return weights
+    @property
+    def untrainable_weights(self):
+        weights = self._untrainable_weights
+        for l in self.nest_layers:
+            weights.extend(l.untrainable_weights)
+        return weights
     @property
     def built(self):
         return self._built

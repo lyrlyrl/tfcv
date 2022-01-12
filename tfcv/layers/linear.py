@@ -42,13 +42,20 @@ class Linear(Layer):
         self._output_specs = self.compute_output_specs(input_shape)
 
         with tf.name_scope(self.name):
-            self.kernel = tf.Variable(
-                initial_value=self.kernel_initializer(shape=(input_dim, self.units), dtype="float32"),
-                trainable=True, name='kernel'
+            self.kernel = self.add_weight(
+                name = 'kernel',
+                shape = (input_dim, self.units),
+                dtype = tf.float32,
+                trainable = True,
+                initializer = self.kernel_initializer
             )
             if self.use_bias:
-                self.bias = tf.Variable(
-                    initial_value=self.bias_initializer(shape=(self.units,), dtype="float32"), trainable=True, name='bias'
+                self.bias = self.add_weight(
+                    name = 'bias',
+                    shape = (self.units,),
+                    dtype = tf.float32,
+                    trainable = True,
+                    initializer = self.bias_initializer
                 )
     def compute_output_specs(self, input_shape):
         if isinstance(input_shape, np.ndarray):

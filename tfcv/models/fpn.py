@@ -88,7 +88,6 @@ class FPN(Layer):
                 for level in range(self.upsample_max_level + 1, self.max_level + 1):
                     self._layers["stage3"][str(level)].build(output_specs[str(level-1)])
                     output_specs[str(level)] = self._layers["stage3"][str(level)].output_specs
-            # assert self._output_specs = output_specs
 
     def compute_output_specs(self, input_shape):
         all_keys = list(map(int, list(input_shape.keys())))
