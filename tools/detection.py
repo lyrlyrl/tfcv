@@ -57,6 +57,8 @@ def train_and_evaluate(export_to_savedmodel=False):
             learning_rate=learning_rate,
             momentum=cfg.optimization.momentum
         )
+        if cfg.amp:
+            optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True)
 
         model = create_model()
         checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)

@@ -2,8 +2,6 @@
 xla: true
 amp: false
 checkpoint:
-  subdir: 'ckpt'
-  max_to_keep: 5
   name: 'ckpt'
 tflog:
   subdir: 'tflogs'

@@ -3,7 +3,7 @@ import logging
 
 import tensorflow as tf
 
-__all__ = ['set_xla', 'set_amp']
+__all__ = ['set_xla', 'set_amp', 'create_global_step']
 
 def set_xla(cfg):
     if cfg.xla:
@@ -16,3 +16,26 @@ def set_amp(cfg):
         tf.keras.mixed_precision.experimental.set_policy(policy)
         logging.info('AMP is activated')
 
+def create_global_step() -> tf.Variable:
+    """Creates a `tf.Variable` suitable for use as a global step counter.
+
+    Creating and managing a global step variable may be necessary for
+    `AbstractTrainer` subclasses that perform multiple parameter updates per
+    `Controller` "step", or use different optimizers on different steps.
+
+    In these cases, an `optimizer.iterations` property generally can't be used
+    directly, since it would correspond to parameter updates instead of iterations
+    in the `Controller`'s training loop. Such use cases should simply call
+    `step.assign_add(1)` at the end of each step.
+
+    Returns:
+        A non-trainable scalar `tf.Variable` of dtype `tf.int64`, with only the
+        first replica's value retained when synchronizing across replicas in
+        a distributed setting.
+    """
+    return tf.Variable(
+        0,
+        dtype=tf.int64,
+        name="global_step",
+        trainable=False,
+        aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA)

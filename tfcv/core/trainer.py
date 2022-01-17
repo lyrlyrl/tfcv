@@ -6,6 +6,7 @@ import logging
 
 import time
 
+from tfcv import logger
 from tfcv.exception import NanTrainLoss
 from tfcv.utils.progress import get_tqdm
 
@@ -22,13 +23,14 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
     def __init__(
             self, 
             params,
+            global_step: tf.Variable,
             model: tf.keras.Model,
             optimizer=None,
             metrics=[],
             hooks=None):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
-
+        self._global_step = global_step
         self._model = model
         self._optimizer = optimizer
         self._metrics = metrics
@@ -78,30 +80,38 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
                 return predictions
             self._validation_op = tf.function(dist_validation_op)
 
-    def train(self, num_steps, train_iterator, current_step=0, epoch_number=None):
+    def train(self, num_steps, train_iterator):
         if not self._train_op:
             raise 
         assert num_steps > 0
         num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
+        start_step = self._global_step.numpy()
+        current_step = 0
+        try:
+            for loop_number in range(num_loops):
+                steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
+                self.hooks.before_epoch(steps_to_run, current_step + start_step)            
+                self.train_loop_begin()
+                    
+                for _ in get_tqdm(
+                        range(steps_to_run),
+                        desc=f'start at step {current_step + start_step}: '):
+                    outputs = self._train_op(train_iterator)
+                    self.hooks.after_train_batch(outputs)
 
-        for loop_number in range(num_loops):
-            steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
-            self.hooks.before_epoch(steps_to_run, current_step, epoch_number)            
-            self.train_loop_begin()
-                 
-            for _ in get_tqdm(
-                    range(steps_to_run),
-                    desc=f'start at ({epoch_number}, {current_step}): ' if epoch_number else f'start at step {current_step}: '):
-                outputs = self._train_op(train_iterator)
-                self.hooks.after_train_batch(outputs)
+                train_throuput, train_loss, metrics = self.train_loop_end()
+                
+                if np.isnan(train_loss):
+                    raise NanTrainLoss(current_step, metrics)
 
-            train_throuput, train_loss, metrics = self.train_loop_end()
-
-            if np.isnan(train_loss):
-                raise NanTrainLoss((epoch_number, current_step) if epoch_number else current_step, metrics)
-
-            self.hooks.after_epoch(train_throuput, train_loss, metrics)
-            current_step += steps_to_run
+                self.hooks.after_epoch(train_throuput, train_loss, metrics)
+                current_step += steps_to_run
+                metrics['train_loss'] = train_loss
+                logger.metric(current_step+start_step, metrics)
+                logger.perf(current_step+start_step, {'train_throuput': train_throuput})
+        except NanTrainLoss:
+            pass
+    
 
     def train_forward(self, inputs):
         model_outputs = self._model(inputs, training=True)
@@ -123,6 +133,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         self._train_loss.update_state(raw_loss)
         for metric in self._metrics:
             metric.update_state(to_update[metric.name])
+        self._global_step.assign_add(1)
         return to_output
 
     def validation_forward(self, inputs):

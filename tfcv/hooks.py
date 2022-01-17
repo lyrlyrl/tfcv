@@ -129,4 +129,21 @@ class TrainCheckpoint(Hook):
         if self._trained:
             pass
     
-
+class LoggerHook(Hook):
+    def __init__(self, logger):
+        super().__init__(name='logger')
+        self._logger = logger
+    def before_epoch(self, steps, current_step, epoch_number):
+        if epoch_number != None:
+            step = (epoch_number, current_step)
+        else:
+            step = current_step
+        self._logger.message(step, f'train loop started to train {steps} steps')
+        self._latest_step = current_step + steps
+    def after_epoch(self, train_throuput, train_loss, metrics):
+        self._logger.perf(self._latest_step, {'train_throuput': train_throuput})
+        metrics['train_loss'] = train_loss
+        metrics['learning_rate'] = float(self.trainer.optimizer._decayed_lr(tf.float32))
+        self._logger.metric(self._latest_step, metrics)
+    def after_train(self, final_eval_metrics, additional_msg):
+        pass
