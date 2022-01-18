@@ -7,11 +7,8 @@ import tensorflow as tf
 
 import tfcv
 from tfcv import logger
-from tfcv.config import update_cfg, config as cfg
+from tfcv.config import config as cfg
 from tfcv.datasets.coco.dataset import Dataset
-from tfcv.models.genelized_rcnn import GenelizedRCNN
-from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
-from tfcv.runners.faster_rcnn import FasterRCNNTrainer
 
 PARSER = argparse.ArgumentParser(
     description='as child process'
@@ -38,7 +35,8 @@ PARSER.add_argument(
     nargs='+',
     required=True
 )
-def evaluate(eval_number):
+
+def evaluate(ckpts, results):
     setup()
     dataset = Dataset()
     if cfg.num_gpus > 1:

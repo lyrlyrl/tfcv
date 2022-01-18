@@ -1,1 +1,1 @@
-from tfcv.layers.sync_bn import SyncBatchNormalization
+from tfcv.layers.normalization import BatchNormalization

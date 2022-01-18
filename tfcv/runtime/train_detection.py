@@ -6,6 +6,7 @@ import math
 import tensorflow as tf
 
 import tfcv
+from tfcv.exception import NanTrainLoss
 from tfcv import logger
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
@@ -62,15 +63,19 @@ def train(epochs, initial_ckpt=None):
         
         checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
         if initial_ckpt != None:
-            initialize(checkpoint, initial_ckpt)
+            checkpoint.restore(initial_ckpt)
         metrics = create_metrics(cfg)
         trainer = create_trainer(cfg, model, optimizer, metrics=metrics)
 
         trainer.compile(True)
-        trainer.train(total_steps, iter(train_data))
-        ckpt_path = os.path.join(cfg.workspace, cfg.checkpoint.name)
-        checkpoint.save(ckpt_path)
-        logger.status(global_step.numpy(), 'success')
+        try:
+            trainer.train(total_steps, iter(train_data))
+            ckpt_path = os.path.join(cfg.workspace, cfg.checkpoint.name)
+            checkpoint.save(ckpt_path)
+        except NanTrainLoss:
+            success = 'train loss nan'
+        
+        logger.finalize(global_step.numpy(), success)
         
 
 def create_trainer(config, model, optimizer=None, metrics=[], hooks=[]):
@@ -119,14 +124,6 @@ def create_optimizer(config, global_step, train_size):
     if config.amp:
         optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True)
     return optimizer
-
-def initialize(checkpoint, initial_ckpt):
-    checkpoint_path = tf.train.latest_checkpoint(initial_ckpt)
-    if checkpoint_path is None:
-        logging.info(f"No checkpoint was found in: {initial_ckpt}")
-        return
-    checkpoint.restore(checkpoint_path).assert_consumed()
-    logging.info(f"Loaded weights from checkpoint: {checkpoint_path}")
 
 if __name__ == '__main__':
     arguments = PARSER.parse_args()

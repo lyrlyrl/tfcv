@@ -42,7 +42,9 @@ if __name__ == '__main__':
         last_epoch = -1
         for target_epoch in epochs:
             now_workspace = os.path.join(workspace, str(target_epoch))
-            train_command = f'python3 -m tfcv.runtime.train_detection --workspace {now_workspace} --config_file {config_path} --epochs evaluate_interval'
+            train_command = \
+                f'python3 -m tfcv.runtime.train_detection --workspace {now_workspace} '\
+                f'--config_file {config_path} --epochs evaluate_interval'
             if last_epoch > 0:
                 restore_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(last_epoch)))
                 train_command += f' --initial_ckpt {restore_ckpt}'
@@ -53,7 +55,9 @@ if __name__ == '__main__':
                 print('train failed')
             latest_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(target_epoch)))
             result = os.path.join(workspace, str(target_epoch), 'results.yaml')
-            eval_command = f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path} --checkpoints {latest_ckpt} --results {result}'
+            eval_command = \
+                f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} '\
+                f'--config_file {config_path} --checkpoints {latest_ckpt} --results {result}'
             eval_result = subprocess.run(eval_command, shell=True)
             last_epoch = target_epoch
 
@@ -61,7 +65,10 @@ if __name__ == '__main__':
         ckpts = []
         for number in arguments.eval_numbers:
             assert os.path.isdir(os.path.join(workspace, str(number)))
-            ckpts.append(tf.train.latest_checkpoint(os.path.join(workspace, str(number))))
-        eval_command = f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path}'\
-                    f' --checkpoints {" ".join(ckpts)} --results {os.path.join(workspace, "results.yaml")}'
+            ckpt_path = tf.train.latest_checkpoint(os.path.join(workspace, str(number)))
+            assert ckpt_path != None
+            ckpts.append(ckpt_path)
+        eval_command = \
+            f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path}'\
+            f' --checkpoints {" ".join(ckpts)} --results {os.path.join(workspace, "results.yaml")}'
         
