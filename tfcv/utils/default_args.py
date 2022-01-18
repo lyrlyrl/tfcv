@@ -68,7 +68,7 @@ COMMON_GROUP.add_argument(
 )
 
 EVAL_GROUP.add_argument(
-    '--eval_number',
+    '--eval_numbers',
     type=int,
     default=None,
     nargs='+',
@@ -87,7 +87,6 @@ TRAIN_GROUP.add_argument(
 TRAIN_GROUP.add_argument(
     '--evaluate_interval',
     type=int,
-    default=1,
     metavar='N',
     help='Number of steps per train loop'
 )

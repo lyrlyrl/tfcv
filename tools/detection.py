@@ -30,9 +30,11 @@ if __name__ == '__main__':
         yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
     
     mode = arguments.mode
-    if mode == 'train_and_eval':
+    if mode == 'train':
         total_epochs = cfg.solver.epochs
         evaluate_interval = cfg.solver.evaluate_interval
+        if evaluate_interval == None:
+            evaluate_interval = total_epochs
 
         epochs = np.arange(evaluate_interval, total_epochs+evaluate_interval, evaluate_interval)
         epochs[-1] = total_epochs
@@ -49,6 +51,17 @@ if __name__ == '__main__':
                 print('train epoch finished')
             else:
                 print('train failed')
-            eval_command = f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path} --epochs {str(target_epoch)}'
+            latest_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(target_epoch)))
+            result = os.path.join(workspace, str(target_epoch), 'results.yaml')
+            eval_command = f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path} --checkpoints {latest_ckpt} --results {result}'
             eval_result = subprocess.run(eval_command, shell=True)
             last_epoch = target_epoch
+
+    elif mode == 'eval':
+        ckpts = []
+        for number in arguments.eval_numbers:
+            assert os.path.isdir(os.path.join(workspace, str(number)))
+            ckpts.append(tf.train.latest_checkpoint(os.path.join(workspace, str(number))))
+        eval_command = f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path}'\
+                    f' --checkpoints {" ".join(ckpts)} --results {os.path.join(workspace, "results.yaml")}'
+        

@@ -27,13 +27,17 @@ PARSER.add_argument(
     required=True
 )
 PARSER.add_argument(
-    '--epochs',
-    type=int,
+    '--results',
+    type=str,
+    required=True
+)
+PARSER.add_argument(
+    '--checkpoints',
+    type=str,
     default=None,
     nargs='+',
     required=True
 )
-
 def evaluate(eval_number):
     setup()
     dataset = Dataset()
