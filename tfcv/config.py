@@ -102,7 +102,8 @@ def setup_args(arguments, cfg):
         cfg.seed = arguments.seed
     cfg.xla = arguments.xla
     cfg.amp = arguments.amp
-    cfg.steps_per_loop = arguments.steps_per_loop
-    cfg.num_gpus = arguments.num_gpus
+    cfg.solver.steps_per_loop = arguments.steps_per_loop
+    cfg.solver.evaluate_interval = arguments.evaluate_interval
+    cfg.num_gpus = len(arguments.gpu_ids)
     if arguments.config_override:
         cfg.update_args(arguments.config_override)

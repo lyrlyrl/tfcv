@@ -67,13 +67,10 @@ def train(epochs, initial_ckpt=None):
         trainer = create_trainer(cfg, model, optimizer, metrics=metrics)
 
         trainer.compile(True)
-        try:
-            trainer.train(total_steps, iter(train_data))
-            ckpt_path = os.path.join(cfg.workspace, cfg.checkpoint.name)
-            checkpoint.save(ckpt_path)
-            logger.status(global_step.numpy(), 'success')
-        except tfcv.NanTrainLoss:
-            logger.status(global_step.numpy(), 'TrainNanLoss')
+        trainer.train(total_steps, iter(train_data))
+        ckpt_path = os.path.join(cfg.workspace, cfg.checkpoint.name)
+        checkpoint.save(ckpt_path)
+        logger.status(global_step.numpy(), 'success')
         
 
 def create_trainer(config, model, optimizer=None, metrics=[], hooks=[]):

@@ -92,7 +92,7 @@ class Hook(object):
     def after_evaluate(self, outputs):
         pass
 
-class TrainCheckpoint(Hook):
+class CheckpointHook(Hook):
 
     def __init__(
             self,
@@ -145,5 +145,9 @@ class LoggerHook(Hook):
         metrics['train_loss'] = train_loss
         metrics['learning_rate'] = float(self.trainer.optimizer._decayed_lr(tf.float32))
         self._logger.metric(self._latest_step, metrics)
-    def after_train(self, final_eval_metrics, additional_msg):
-        pass
+    def after_train(self, success, additional_msg = None):
+        if success:
+            self._logger.finalize(self._latest_step, True)
+        else:
+            assert additional_msg != None
+            self._logger.finalize(self._latest_step, additional_msg)

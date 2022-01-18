@@ -1,6 +1,4 @@
 # hyper
-xla: true
-amp: false
 checkpoint:
   name: 'ckpt'
 tflog:
