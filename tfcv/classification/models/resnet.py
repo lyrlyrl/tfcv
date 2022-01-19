@@ -9,7 +9,7 @@ Residual networks (ResNets) were proposed in:
 import tensorflow as tf
 
 from tfcv.layers import BatchNormalization
-from tfcv.models.utils import load_npz
+from tfcv.model_zoo import load_npz
 
 layers = tf.keras.layers
 
@@ -81,7 +81,6 @@ class Conv2DBlock(tf.keras.layers.Layer):
                 kernel_initializer,
                 use_bn=True,
                 freeze_bn=False,
-                use_sync_bn=False,
                 norm_momentum=0.9,
                 norm_epsilon=1e-05,
                 activation=None,
@@ -114,8 +113,7 @@ class Conv2DBlock(tf.keras.layers.Layer):
                 bn_axis = -1
             else:
                 bn_axis = 1
-            layer = BatchNormalization
-            self._bn = layer(
+            self._bn = BatchNormalization(
                 axis = bn_axis,
                 momentum = norm_momentum,
                 epsilon = norm_epsilon,
@@ -145,7 +143,6 @@ class ResidualBlock(tf.keras.layers.Layer):
             strides,
             use_projection=False,
             kernel_initializer='VarianceScaling',
-            use_sync_bn=False,
             norm_momentum=0.9,
             norm_epsilon=1e-05,
             activation='relu',
@@ -242,7 +239,6 @@ class BottleneckBlock(tf.keras.layers.Layer):
                 use_projection=False,
                 kernel_initializer='VarianceScaling',
                 freeze_bn=False,
-                use_sync_bn=False,
                 norm_momentum=0.9,
                 norm_epsilon=1e-05,
                 activation='relu',
@@ -286,7 +282,6 @@ class BottleneckBlock(tf.keras.layers.Layer):
                 padding='valid',
                 kernel_initializer=self._kernel_initializer,
                 freeze_bn=freeze_bn,
-                use_sync_bn=use_sync_bn,
                 norm_momentum=norm_momentum,
                 norm_epsilon=norm_epsilon,
                 name='shortcut'
@@ -298,7 +293,6 @@ class BottleneckBlock(tf.keras.layers.Layer):
             padding='valid',
             kernel_initializer=self._kernel_initializer,
             freeze_bn=freeze_bn,
-            use_sync_bn=use_sync_bn,
             norm_momentum=norm_momentum,
             norm_epsilon=norm_epsilon,
             activation=activation,
@@ -312,7 +306,6 @@ class BottleneckBlock(tf.keras.layers.Layer):
             padding='same',
             kernel_initializer=self._kernel_initializer,
             freeze_bn=freeze_bn,
-            use_sync_bn=use_sync_bn,
             norm_momentum=norm_momentum,
             norm_epsilon=norm_epsilon,
             activation=activation,
@@ -326,7 +319,6 @@ class BottleneckBlock(tf.keras.layers.Layer):
             padding='valid',
             kernel_initializer=self._kernel_initializer,
             freeze_bn=freeze_bn,
-            use_sync_bn=use_sync_bn,
             norm_momentum=norm_momentum,
             norm_epsilon=norm_epsilon,
             name='bottleneck_3'
@@ -356,7 +348,6 @@ def block_group(
         strides,
         kernel_initializer,
         freeze_bn,
-        use_sync_bn,
         norm_momentum,
         norm_epsilon,
         activation,
@@ -379,7 +370,6 @@ def block_group(
         use_projection=True,
         kernel_initializer=kernel_initializer,
         freeze_bn=freeze_bn,
-        use_sync_bn=use_sync_bn,
         norm_momentum=norm_momentum,
         norm_epsilon=norm_epsilon,
         activation=activation,
@@ -394,7 +384,6 @@ def block_group(
                 use_projection=False,
                 kernel_initializer=kernel_initializer,
                 freeze_bn=freeze_bn,
-                use_sync_bn=use_sync_bn,
                 norm_momentum=norm_momentum,
                 norm_epsilon=norm_epsilon,
                 activation=activation,
@@ -413,7 +402,6 @@ class ResNet(tf.keras.Model):
         input_shape=[None, None, 3],
         freeze_at=-1,
         freeze_bn=False,
-        use_sync_bn=False,
         norm_momentum=0.9,
         norm_epsilon=1e-05,
         activation='relu',
@@ -429,7 +417,6 @@ class ResNet(tf.keras.Model):
             model_id: `int` depth of ResNet backbone model.
             input_specs: `tf.keras.layers.InputSpec` specs of the input tensor.
             activation: `str` name of the activation function.
-            use_sync_bn: if True, use synchronized batch normalization.
             norm_momentum: `float` normalization omentum for the moving average.
             norm_epsilon: `float` small float added to variance to avoid dividing by
                 zero.
@@ -438,8 +425,6 @@ class ResNet(tf.keras.Model):
         """
         self._model_id = model_id
         self._kernel_initializer = kernel_initializer
-        if freeze_bn:
-            use_sync_bn = False
         # self._activation = get_activation(use_keras_layer=True)
 
             # Build ResNet.
@@ -454,7 +439,6 @@ class ResNet(tf.keras.Model):
             kernel_initializer=kernel_initializer,
             padding='same',
             freeze_bn=freeze_bn,
-            use_sync_bn=use_sync_bn,
             norm_momentum=norm_momentum,
             norm_epsilon=norm_epsilon,
             activation=activation,
@@ -472,7 +456,6 @@ class ResNet(tf.keras.Model):
                     strides=(1 if i == 0 else 2),
                     kernel_initializer=kernel_initializer,
                     freeze_bn=freeze_bn,
-                    use_sync_bn=use_sync_bn,
                     norm_momentum=norm_momentum,
                     norm_epsilon=norm_epsilon,
                     activation=activation,

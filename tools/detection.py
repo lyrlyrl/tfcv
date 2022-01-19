@@ -1,4 +1,3 @@
-import logging
 import os
 import math
 import numpy as np
@@ -43,7 +42,7 @@ if __name__ == '__main__':
         for target_epoch in epochs:
             now_workspace = os.path.join(workspace, str(target_epoch))
             train_command = \
-                f'python3 -m tfcv.runtime.train_detection --workspace {now_workspace} '\
+                f'python3 -m tfcv.detection.train --workspace {now_workspace} '\
                 f'--config_file {config_path} --epochs evaluate_interval'
             if last_epoch > 0:
                 restore_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(last_epoch)))
@@ -56,7 +55,7 @@ if __name__ == '__main__':
             latest_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(target_epoch)))
             result = os.path.join(workspace, str(target_epoch), 'results.yaml')
             eval_command = \
-                f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} '\
+                f'python3 -m tfcv.detection.evaluate --workspace {workspace} '\
                 f'--config_file {config_path} --checkpoints {latest_ckpt} --results {result}'
             eval_result = subprocess.run(eval_command, shell=True)
             last_epoch = target_epoch
@@ -69,6 +68,6 @@ if __name__ == '__main__':
             assert ckpt_path != None
             ckpts.append(ckpt_path)
         eval_command = \
-            f'python3 -m tfcv.runtime.evaluate_detection --workspace {workspace} --config_file {config_path}'\
+            f'python3 -m tfcv.detection.evaluate --workspace {workspace} --config_file {config_path}'\
             f' --checkpoints {" ".join(ckpts)} --results {os.path.join(workspace, "results.yaml")}'
         

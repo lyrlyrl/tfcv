@@ -1,8 +1,8 @@
 import tensorflow as tf
 from tfcv.distribute import MPI_is_distributed
-from tfcv.utils import lazy_import
+from tfcv.utils.lazy_import import LazyImport
 
-hvd = lazy_import.LazyImport('horovod.tensorflow')
+hvd = LazyImport('horovod.tensorflow')
 
 def BatchNormalization(*args, **kwargs):
     strategy = tf.distribute.get_strategy()

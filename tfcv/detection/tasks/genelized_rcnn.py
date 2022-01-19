@@ -1,17 +1,15 @@
 import tensorflow as tf
 
 from tfcv.utils.amp import fp16_to_fp32_nested
-
 from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.ops.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.ops.losses.rpn_loss import RPNLoss
+from tfcv.detection.tasks.base import DetectionTask
 
-from tfcv.runners.base import DetectionTrainer, DetectionExporter
+class GenelizedRCNNTask(DetectionTask):
 
-class FasterRCNNTrainer(DetectionTrainer):
-
-    def train_forward(self, inputs):
-        model_outputs = self._model(
+    def train_forward(self, model, inputs):
+        model_outputs = model(
             images=inputs['images'],
             image_info=inputs['image_info'],
             gt_boxes=inputs['gt_boxes'],
@@ -23,21 +21,12 @@ class FasterRCNNTrainer(DetectionTrainer):
         losses = self._build_loss(model_outputs, inputs)
         losses['l2_regularization_loss'] = tf.add_n([
             tf.nn.l2_loss(tf.cast(v, dtype=tf.float32))
-            for v in self._model.trainable_variables
+            for v in model.trainable_variables
             if not any([pattern in v.name for pattern in ["batch_normalization", "bias", "beta"]])
         ]) * self._params.loss.l2_weight_decay
 
         raw_loss = tf.math.reduce_sum(list(losses.values()))
         return (raw_loss, losses, None)
-
-    def validation_forward(self, inputs):
-        detections = self._model(
-            images=inputs['images'],
-            image_info=inputs['image_info'],
-            training=False)
-        detections['source_ids'] = inputs['source_ids']
-        detections['image_info'] = inputs['image_info']
-        return detections
 
     def _build_loss(self, model_outputs, inputs):
         if self._params.include_mask:
@@ -63,5 +52,12 @@ class FasterRCNNTrainer(DetectionTrainer):
         if self._params.include_mask:
             losses['mask_rcnn_loss'] = mask_rcnn_loss
         return losses
-
-FasterRCNNExporter = DetectionExporter
+        
+    def inference_forward(self, model, inputs):
+        detections = model(
+            images=inputs['images'],
+            image_info=inputs['image_info'],
+            training=False)
+        detections['source_ids'] = inputs['source_ids']
+        detections['image_info'] = inputs['image_info']
+        return detections

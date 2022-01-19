@@ -8,7 +8,7 @@ import yaml
 from tfcv.exception import NanTrainLoss
 from tfcv.core.trainer import Trainer
 
-__all__ = ['HookList', 'Hook']
+__all__ = ['HookList', 'Hook', 'CheckpointHook', 'LoggerHook']
 
 class HookList(object):
 
