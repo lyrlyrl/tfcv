@@ -14,7 +14,7 @@ COMMON_GROUP.add_argument(
     'mode',
     type=str,
     metavar='MODE',
-    choices=['train_and_eval', 'eval', 'export'],
+    choices=['train', 'eval', 'export'],
     help='run mode',
 )
 

@@ -1,11 +1,13 @@
 import math
 import abc
+from typing import List
 import tensorflow as tf
 import numpy as np
 
 import time
 
 from tfcv import logger
+from tfcv.hooks import HookList, Hook
 from tfcv.distribute import MPI_is_distributed, MPI_size
 from tfcv.utils.lazy_import import LazyImport
 from tfcv.exception import NanTrainLoss
@@ -24,7 +26,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             task,
             optimizer=None,
             metrics=[],
-            hooks=None):
+            hooks: List[Hook] = []):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
         self._global_step = global_step
@@ -40,9 +42,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         
         self._train_timer = 0
 
-        self.hooks = hooks
-        if self.hooks:
-            self.hooks.set_trainer(self)
+        self.hooks = HookList(hooks, self)
 
     @property
     def model(self):

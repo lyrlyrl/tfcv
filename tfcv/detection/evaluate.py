@@ -2,13 +2,17 @@ import argparse
 import os
 import logging
 import math
+import yaml
 
 import tensorflow as tf
 
 import tfcv
 from tfcv import logger
-from tfcv.config import config as cfg
+from tfcv import Predictor
+from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
+from tfcv.evaluate.metric import COCOEvaluationMetric, process_predictions
+from tfcv.detection.train import create_task, setup
 
 PARSER = argparse.ArgumentParser(
     description='as child process'
@@ -37,7 +41,6 @@ PARSER.add_argument(
 )
 
 def evaluate(ckpts, results):
-    setup()
     dataset = Dataset()
     if cfg.num_gpus > 1:
         strategy = tf.distribute.MirroredStrategy(
@@ -47,33 +50,56 @@ def evaluate(ckpts, results):
         strategy = tf.distribute.OneDeviceStrategy('device:GPU:0')
     else:
         strategy = tf.distribute.OneDeviceStrategy('device:CPU:0')
-    cfg.replicas = strategy.num_replicas_in_sync
-    cfg.global_eval_batch_size = cfg.eval_batch_size * cfg.replicas
+    cfg.global_eval_batch_size = cfg.eval_batch_size * strategy.num_replicas_in_sync
     cfg.freeze()
     logging.info(f'Distributed Strategy is activated for {cfg.replicas} device(s)')
-    eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size)
+    eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size, strategy=strategy)
 
     with strategy.scope():
+        task = create_task(cfg)
+        model = task.create_model()
 
-        model = create_model()
         checkpoint = tf.train.Checkpoint(model=model)
 
-        trainer = create_trainer(model)
+        predictor = Predictor(cfg, model, task)
+        predictor.compile()
 
         dist_eval_dataset = strategy.experimental_distribute_dataset(eval_data)
-        trainer.compile(train=False)
-
+        
         eval_results = {}
         eval_results_dir = os.path.join(cfg.model_dir, 'run_eval_results.yaml')
 
-        for i in eval_number:
-            ckpt_path = os.path.join(cfg.model_dir, cfg.checkpoint.subdir, f'{cfg.checkpoint.name}-{i}')
-            try:
-                checkpoint.restore(ckpt_path).expect_partial()
-                eval_result = trainer.evaluate(dist_eval_dataset)
-                eval_results[i] = eval_result
-            except NotFoundError:
-                logging.error(f'cant find checkpoint {ckpt_path}')
-            finally:
-                with open(eval_results_dir, 'w') as fp:
-                    yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
+        coco_metric = COCOEvaluationMetric(
+            os.path.join(cfg.data.dir, cfg.data.val_json), cfg.include_mask)
+
+        for ckpt in ckpts:
+            checkpoint.restore(ckpt).expect_partial()
+            outputs = [predictor.predict_batch(inputs) for inputs in dist_eval_dataset]
+            def _merge(*args):
+                return tf.concat(args, 0).numpy()
+            outputs = tf.nest.map_structure(_merge, *outputs)
+            predictions = process_predictions(outputs)
+            metric = coco_metric.predict_metric_fn(predictions)
+            eval_results[ckpt] = metric
+            
+        with open(eval_results_dir, 'w') as fp:
+            yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
+
+if __name__ == '__main__':
+    arguments = PARSER.parse_args()
+
+    workspace = arguments.workspace
+    if not os.path.isdir(workspace):
+        os.makedirs(workspace)
+    params = update_cfg(arguments.config_file)
+    cfg.from_dict(params)
+
+    setup(cfg)
+
+    logger.init(
+        [
+            logger.StdOutBackend(logger.Verbosity.INFO),
+            logger.FileBackend(logger.Verbosity.DEBUG, os.path.join(workspace, 'evaluate_log.txt'), False)
+        ]
+    )
+    evaluate(arguments.checkpoints, arguments.results)

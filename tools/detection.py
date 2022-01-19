@@ -43,7 +43,7 @@ if __name__ == '__main__':
             now_workspace = os.path.join(workspace, str(target_epoch))
             train_command = \
                 f'python3 -m tfcv.detection.train --workspace {now_workspace} '\
-                f'--config_file {config_path} --epochs evaluate_interval'
+                f'--config_file {config_path} --epochs {evaluate_interval}'
             if last_epoch > 0:
                 restore_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(last_epoch)))
                 train_command += f' --initial_ckpt {restore_ckpt}'

@@ -1,0 +1,103 @@
+amp: false
+anchor:
+  aspect_ratios:
+  - !!python/tuple
+    - 1.0
+    - 1.0
+  - !!python/tuple
+    - 1.4
+    - 0.7
+  - !!python/tuple
+    - 0.7
+    - 1.4
+  num_scales: 1
+  scale: 8.0
+backbone:
+  resnet_id: 50
+checkpoint:
+  name: ckpt
+data:
+  augment_input: true
+  dir: ~/data/coco
+  image_size: !!python/tuple
+  - 832
+  - 1344
+  pixel_mean: !!python/tuple
+  - 0.485
+  - 0.456
+  - 0.406
+  pixel_std: !!python/tuple
+  - 0.229
+  - 0.224
+  - 0.225
+  skip_crowd_during_training: true
+  train_split_samples: 118287
+  use_category: true
+  val_json: annotations/instances_val2017.json
+  val_split_samples: -1
+eval_batch_size: 4
+frcnn:
+  bbox_reg_weights: !!python/tuple
+  - 10.0
+  - 10.0
+  - 5.0
+  - 5.0
+  mlp_head_dim: 1024
+  test:
+    detections_per_image: 100
+    nms: 0.5
+    score: 0.0
+from_scratch: false
+include_mask: false
+loss:
+  fast_rcnn_box_weight: 1.0
+  l2_weight_decay: 0.0001
+  rpn_box_weight: 1.0
+max_level: 6
+meta_arch: genelized_rcnn
+min_level: 2
+num_classes: 91
+num_gpus: 1
+optimization:
+  init_learning_rate: 0.0
+  learning_rate_boundaries:
+  - 0.3
+  - 8.0
+  - 11.0
+  learning_rate_values:
+  - 0.01
+  - 0.001
+  - 0.0001
+  momentum: 0.9
+proposal:
+  batch_size_per_im: 512
+  bg_thresh_hi: 0.5
+  bg_thresh_lo: 0.0
+  fg_fraction: 0.25
+  fg_thresh: 0.5
+rpn:
+  batch_size_per_im: 256
+  fg_fraction: 0.5
+  min_size: 0.0
+  negative_overlap: 0.3
+  positive_overlap: 0.7
+  test:
+    nms_thresh: 0.7
+    post_nms_topn: 1000
+    pre_nms_topn: 1000
+  train:
+    nms_threshold: 0.7
+    post_nms_topn: 1000
+    pre_nms_topn: 2000
+seed: null
+solver:
+  best_eval_metric: mAP
+  epochs: 14
+  evaluate_interval: null
+  steps_per_loop: 100
+task: detection
+tflog:
+  subdir: tflogs
+train_batch_size: 4
+use_synthetic_data: false
+xla: false
