@@ -142,7 +142,10 @@ class LoggerHook(Hook):
     def after_epoch(self, train_throuput, train_loss, metrics):
         self._logger.perf(self._latest_step, {'train_throuput': train_throuput})
         metrics['train_loss'] = train_loss
-        metrics['learning_rate'] = float(self.trainer.optimizer._decayed_lr(tf.float32))
+        learning_rate = self.trainer.optimizer.learning_rate
+        if callable(learning_rate):
+            learning_rate = learning_rate()
+        metrics['learning_rate'] = learning_rate.numpy()
         self._logger.metric(self._latest_step, metrics)
     def after_train(self, success, additional_msg = None):
         if success:

@@ -32,12 +32,13 @@ class PiecewiseConstantWithWarmupSchedule:
     def __call__(self):
         with tf.name_scope(self._name):
             # linear learning rate before first boundary
-            warmup_lr = self._init_value + (self._values[0] - self._init_value) * (self._global_step / self._boundaries[0])
-            warmup_pred = (tf.less(self._global_step, self._boundaries[0]), lambda: warmup_lr)
+            global_step = tf.cast(self._global_step, tf.float32)
+            warmup_lr = self._init_value + (self._values[0] - self._init_value) * (global_step / self._boundaries[0])
+            warmup_pred = (tf.less(global_step, self._boundaries[0]), lambda: warmup_lr)
 
             # step learning rate after first boundary
             boundaries_pred = [
-                (tf.less(self._global_step, limit), lambda v=v: v)
+                (tf.less(global_step, limit), lambda v=v: v)
                 for limit, v in zip(self._boundaries[1:], self._values)
             ]
 

@@ -97,7 +97,7 @@ class StdOutBackend(Backend):
             logs = data
         else:
             assert isinstance(data, Mapping)
-            if dtype == LogType.METRICS:
+            if dtype == LogType.METRIC:
                 logs = 'metrics: \n'
             elif dtype == LogType.PERF:
                 logs = 'perf: \n'

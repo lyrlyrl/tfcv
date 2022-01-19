@@ -8,6 +8,7 @@ import tensorflow as tf
 import tfcv
 from tfcv import logger
 from tfcv.exception import NanTrainLoss
+from tfcv.hooks import LoggerHook
 from tfcv import DefaultTrainer
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
@@ -67,7 +68,7 @@ def train(epochs, initial_ckpt=None):
             checkpoint.restore(initial_ckpt)
         metrics = create_metrics(cfg)
         trainer = DefaultTrainer(
-            cfg, global_step, model, task, optimizer, metrics
+            cfg, global_step, model, task, optimizer, metrics, [LoggerHook(logger)]
         )
 
         trainer.compile()
