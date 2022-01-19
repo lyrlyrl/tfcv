@@ -127,7 +127,7 @@ class FileBackend(Backend):
                     elapsedtime=str(elapsedtime),
                     datetime=str(timestamp),
                     type=dtype,
-                    step=step,
+                    step=int(step),
                 )
         if dtype == LogType.FINALIZE:
             if data == 'success':

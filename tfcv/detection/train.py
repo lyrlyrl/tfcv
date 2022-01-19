@@ -141,7 +141,7 @@ if __name__ == '__main__':
     logger.init(
         [
             logger.StdOutBackend(logger.Verbosity.INFO),
-            logger.FileBackend(logger.Verbosity.DEBUG, os.path.join(workspace, 'train_log.txt'), False)
+            logger.FileBackend(logger.Verbosity.INFO, os.path.join(workspace, 'train_log.txt'), False)
         ]
     )
     train(arguments.epochs, arguments.initial_ckpt)
