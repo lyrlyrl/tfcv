@@ -131,4 +131,6 @@ ckpt/
 
 model/
 
+workspace/
+
 archive_detect/
