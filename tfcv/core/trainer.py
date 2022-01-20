@@ -10,12 +10,16 @@ from tfcv import logger
 from tfcv.hooks import HookList, Hook
 from tfcv.distribute import MPI_is_distributed, MPI_size
 from tfcv.utils.lazy_import import LazyImport
-from tfcv.exception import NanTrainLoss
+from tfcv.exception import NanTrainLoss, ManuallyInterrupt
 from tfcv.utils.progress import get_tqdm
 
 hvd = LazyImport('horovod.tensorflow')
 
 __all__ = ['DefaultTrainer']
+
+class Fatal:
+    NAN_LOSS = 'train loss nan'
+    DATA_EXAUSTED = 'not enough data'
 
 class Trainer(tf.Module, metaclass=abc.ABCMeta):
     def __init__(
@@ -62,30 +66,49 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         return self._train_loss
 
     def train(self, num_steps, train_iterator):
-        if not self._train_op:
-            raise 
-        assert num_steps > 0
-        num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
-        start_step = self._global_step.numpy()
-        current_step = 0
-        for loop_number in range(num_loops):
-            steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
-            self.hooks.before_epoch(steps_to_run, current_step + start_step)            
-            self.train_loop_begin()
+        try:
+            if not self._train_op:
+                raise 
+            assert num_steps > 0
+            self.hooks.before_train(num_steps)
+            num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
+            start_step = self._global_step.numpy()
+            current_step = 0
+            for loop_number in range(num_loops):
+                steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
+                self.hooks.before_epoch(steps_to_run, current_step + start_step)            
+                self.train_loop_begin()
+                for _ in get_tqdm(
+                        range(steps_to_run),
+                        desc=f'start at step {current_step + start_step}: '):
+                    outputs = self._train_op(next(train_iterator))
+                    self.hooks.after_train_batch(outputs)
+
+                train_throuput, train_loss, metrics = self.train_loop_end()
                 
-            for _ in get_tqdm(
-                    range(steps_to_run),
-                    desc=f'start at step {current_step + start_step}: '):
-                outputs = self._train_op(next(train_iterator))
-                self.hooks.after_train_batch(outputs)
+                if np.isnan(train_loss):
+                    raise NanTrainLoss(current_step, metrics)
 
-            train_throuput, train_loss, metrics = self.train_loop_end()
-            
-            if np.isnan(train_loss):
-                raise NanTrainLoss(current_step, metrics)
-
-            self.hooks.after_epoch(train_throuput, train_loss, metrics)
-            current_step += steps_to_run
+                self.hooks.after_epoch(train_throuput, train_loss, metrics)
+                current_step += steps_to_run
+        except NanTrainLoss:
+            self.hooks.after_train(False, Fatal.NAN_LOSS)
+            code = Fatal.NAN_LOSS
+        except tf.errors.OutOfRangeError:
+            self.hooks.after_train(False, Fatal.DATA_EXAUSTED)
+            code = Fatal.DATA_EXAUSTED
+        except (KeyboardInterrupt, ManuallyInterrupt):
+            self.hooks.after_train(False, 'manually')
+            code = 'manually'
+        except Exception as e:
+            self.hooks.after_train(False, e)
+            code = str(e)
+        else:
+            self.hooks.after_train(True)
+            code = 0
+        finally:
+            self.hooks.after_run()
+            return code
 
     @abc.abstractmethod
     def compile(self):
@@ -127,7 +150,7 @@ class DefaultTrainer(Trainer):
 
         self._train_op = tf.function(dist_train_step)
 
-    def train_step(self, inputs):
+    def train_step(self, inputs, init_step=False):
         with tf.GradientTape() as tape:
             raw_loss, to_update, to_output = self._task.train_forward(self._model, inputs)
             if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
@@ -139,10 +162,11 @@ class DefaultTrainer(Trainer):
         if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
             grads = self._optimizer.get_unscaled_gradients(grads)
         self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
-        self._train_loss.update_state(raw_loss)
-        for metric in self._metrics:
-            metric.update_state(to_update[metric.name])
-        self._global_step.assign_add(1)
+        if not init_step:
+            self._train_loss.update_state(raw_loss)
+            for metric in self._metrics:
+                metric.update_state(to_update[metric.name])
+            self._global_step.assign_add(1)
         return to_output
 
 class HorovodTrainer(Trainer):

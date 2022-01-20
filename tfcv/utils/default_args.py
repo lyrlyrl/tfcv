@@ -14,7 +14,7 @@ COMMON_GROUP.add_argument(
     'mode',
     type=str,
     metavar='MODE',
-    choices=['train', 'eval', 'export'],
+    choices=['train', 'eval', 'train_and_eval', 'export'],
     help='run mode',
 )
 
@@ -87,6 +87,15 @@ TRAIN_GROUP.add_argument(
 TRAIN_GROUP.add_argument(
     '--evaluate_interval',
     type=int,
+    default=1,
     metavar='N',
-    help='Number of steps per train loop'
+    help='Number of epochs per evaluate'
+)
+
+TRAIN_GROUP.add_argument(
+    '--checkpoint_interval',
+    type=int,
+    default=10000,
+    metavar='N',
+    help='Number of steps per checkpoint'
 )

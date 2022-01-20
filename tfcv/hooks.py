@@ -1,11 +1,6 @@
 import logging
-import os
 
 import tensorflow as tf
-import numpy as np
-import yaml
-
-from tfcv.exception import NanTrainLoss
 
 __all__ = ['HookList', 'Hook', 'CheckpointHook', 'LoggerHook']
 
@@ -42,10 +37,9 @@ class HookList(object):
         for cb in self.hooks:
             cb.after_epoch(train_throuput, train_loss, metrics)
 
-    def after_train(self, final_eval_metrics):
-        additional_msg=self.trigger_train(final_eval_metrics)
+    def after_train(self, success, addtional_message=None):
         for cb in self.hooks:
-            cb.after_train(final_eval_metrics, additional_msg)
+            cb.after_train(success, addtional_message)
         
     def after_train_batch(self, outputs):
         for cb in self.hooks:
@@ -82,7 +76,7 @@ class Hook(object):
         pass
     def before_train(self, steps):
         pass
-    def after_train(self, final_eval_metrics, additional_msg):
+    def after_train(self, success, addtional_message):
         pass
     def after_train_batch(self, outputs):
         pass
@@ -96,40 +90,30 @@ class CheckpointHook(Hook):
     def __init__(
             self,
             checkpoint: tf.train.Checkpoint,
-            model_dir,
-            ckpt_subdir,
-            ckpt_name='ckpt',
-            best_metric=None,
-            best_subdir='best',
-            initialize_fn=None):
-        super().__init__(name='best_model')
-        self._trained = False
-        self._best_metric = best_metric
-        self._ckpt_path = os.path.join(model_dir, ckpt_subdir, ckpt_name)
-        self._best_dir = os.path.join(model_dir, best_subdir)
-        self._best_result_dir = os.path.join(self._best_dir, 'best.yaml')
-        if not os.path.isdir(self._best_dir):
-            os.makedirs(self._best_dir)
-            self.best_results={}
-        else:
-            if os.path.isfile(self._best_result_dir):
-                with open(self._best_result_dir, 'r') as fp:
-                    self.best_results = yaml.load(fp, Loader=yaml.CLoader)
-        self._initialize_fn = initialize_fn
-
-    def set_trainer(self, trainer):
-        super().set_trainer(trainer)
-        self._checkpoint = tf.train.Checkpoint(model=self.trainer.model, optimizer=self.trainer.optimizer)
-
-    def before_train(self, *args, **kwargs):
-        self._trained = True
-
-    def after_evaluate(self, outputs):
-        if self._trained:
-            pass
+            ckpt_interval,
+            ckpt_path,
+            initial_ckpt=None):
+        super().__init__(name='checkpoint')
+        self._ckpt_path = ckpt_path
+        self._initial_ckpt = initial_ckpt
+        self._ckpt_interval = ckpt_interval
+        self._checkpoint = checkpoint
+        self._latest_step = 0
+    def before_train(self, *args):
+        if self._initial_ckpt != None:
+            self._checkpoint.restore(self._initial_ckpt)
+    def before_epoch(self, steps, current_step, epoch_number):
+        self._latest_step += steps
+    def after_epoch(self, *args):
+        if self._latest_step >= self._ckpt_interval:
+            self._checkpoint.save(self._ckpt_path)
+            self._latest_step = 0
+    def after_train(self, success, *args):
+        if self._latest_step > 0 and success:
+            self._checkpoint.save(self._ckpt_path)
     
 class LoggerHook(Hook):
-    def __init__(self, logger):
+    def __init__(self, logger, add_sys_perf=False):
         super().__init__(name='logger')
         self._logger = logger
     def before_epoch(self, steps, current_step, epoch_number):

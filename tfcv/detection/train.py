@@ -2,13 +2,15 @@ import argparse
 import os
 import logging
 import math
+import sys
 
 import tensorflow as tf
 
 import tfcv
 from tfcv import logger
+from tfcv.distribute import MPI_is_distributed, MPI_local_rank
 from tfcv.exception import NanTrainLoss
-from tfcv.hooks import LoggerHook
+from tfcv.hooks import LoggerHook, CheckpointHook
 from tfcv import DefaultTrainer
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
@@ -64,22 +66,27 @@ def train(epochs, initial_ckpt=None):
         model = task.create_model()
         
         checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
-        if initial_ckpt != None:
-            checkpoint.restore(initial_ckpt)
         metrics = create_metrics(cfg)
+        hooks = [LoggerHook(logger)]
+        if not MPI_is_distributed() or MPI_local_rank() == 0:
+            hooks.append(CheckpointHook(
+                checkpoint,
+                cfg.solver.checkpoint_interval,
+                os.path.join(cfg.workspace, cfg.checkpoint.name),
+                initial_ckpt
+            ))
         trainer = DefaultTrainer(
-            cfg, global_step, model, task, optimizer, metrics, [LoggerHook(logger)]
+            cfg, 
+            global_step, 
+            model, 
+            task, 
+            optimizer, 
+            metrics, 
+            hooks
         )
-
         trainer.compile()
-        try:
-            trainer.train(total_steps, iter(train_data))
-            ckpt_path = os.path.join(cfg.workspace, cfg.checkpoint.name)
-            checkpoint.save(ckpt_path)
-        except NanTrainLoss:
-            success = 'train loss nan'
-        
-        logger.finalize(global_step.numpy(), success)
+        return_code = trainer.train(total_steps, iter(train_data))
+        sys.exit(return_code)
         
 def create_task(config):
     if config.meta_arch == 'genelized_rcnn':
@@ -126,6 +133,7 @@ def create_optimizer(config, global_step, train_size):
         optimizer = tf.keras.mixed_precision.LossScaleOptimizer(optimizer, dynamic=True)
     return optimizer
 
+
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
 
@@ -138,10 +146,9 @@ if __name__ == '__main__':
 
     setup(cfg)
 
-    logger.init(
-        [
-            logger.StdOutBackend(logger.Verbosity.INFO),
-            logger.FileBackend(logger.Verbosity.INFO, os.path.join(workspace, 'train_log.txt'), False)
-        ]
-    )
+    backends = [logger.FileBackend(logger.Verbosity.INFO, os.path.join(workspace, f'train_log_rank{MPI_local_rank()}.txt'), False)]
+    if not MPI_is_distributed() or MPI_local_rank() == 0:
+        backends.append(logger.StdOutBackend(logger.Verbosity.INFO))
+
+    logger.init(backends)
     train(arguments.epochs, arguments.initial_ckpt)

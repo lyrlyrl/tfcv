@@ -104,6 +104,7 @@ def setup_args(arguments, cfg):
     cfg.amp = arguments.amp
     cfg.solver.steps_per_loop = arguments.steps_per_loop
     cfg.solver.evaluate_interval = arguments.evaluate_interval
+    cfg.solver.checkpoint_interval = arguments.checkpoint_interval
     cfg.num_gpus = len(arguments.gpu_ids)
     if arguments.config_override:
         cfg.update_args(arguments.config_override)

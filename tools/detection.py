@@ -29,7 +29,12 @@ if __name__ == '__main__':
         yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
     
     mode = arguments.mode
+
     if mode == 'train':
+        total_epochs = cfg.solver.epochs
+        workspace = os.path.join(workspace, str(total_epochs))
+
+    elif mode == 'train_and_eval':
         total_epochs = cfg.solver.epochs
         evaluate_interval = cfg.solver.evaluate_interval
         if evaluate_interval == None:
@@ -51,7 +56,7 @@ if __name__ == '__main__':
             if train_result.returncode == 0:
                 print('train epoch finished')
             else:
-                print('train failed')
+                print('train failed: ', train_result.returncode)
             latest_ckpt = tf.train.latest_checkpoint(os.path.join(workspace, str(target_epoch)))
             result = os.path.join(workspace, str(target_epoch), 'results.yaml')
             eval_command = \

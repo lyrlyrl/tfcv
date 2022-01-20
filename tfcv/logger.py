@@ -173,8 +173,8 @@ GLOBAL_LOGGER = NotInitializedObject()
 def message(step, data, verbosity=Verbosity.INFO):
     GLOBAL_LOGGER.message(data, step, verbosity)
 
-def finalize(step, data, verbosity=Verbosity.INFO):
-    GLOBAL_LOGGER.finalize(data, step, verbosity)
+def finalize(step, data):
+    GLOBAL_LOGGER.finalize(data, step)
 
 def metric(step, data, verbosity=Verbosity.INFO):
     GLOBAL_LOGGER.metric(data, step, verbosity)
