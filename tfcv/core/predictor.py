@@ -37,18 +37,20 @@ class Predictor(tf.Module):
         strategy = tf.distribute.get_strategy()
         def dist_predict_step(inputs):
             outputs = strategy.run(
-                functools.partial(self._task.inference_forward, model=self._model),
+                self.predict_step,
                 args=(inputs,)
             )
             return outputs
         if strategy != None:
             self._predict_op = tf.function(dist_predict_step)
         else:
-            self._predict_op = tf.function(functools.partial(self._task.inference_forward, model=self._model))
+            self._predict_op = tf.function(self.predict_step)
         self._strategy = strategy
-
+    def predict_step(self, inputs):
+        return self._task.inference_forward(self._model, inputs)
     def predict_batch(self, inputs):
         outputs = self._predict_op(inputs)
+        print(outputs, 'aaaaaaaaaaaaaaaaaaaa')
         if self._strategy:
             outputs = merge_replica_results(self._strategy, outputs)
         return outputs

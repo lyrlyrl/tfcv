@@ -75,4 +75,6 @@ if __name__ == '__main__':
         eval_command = \
             f'python3 -m tfcv.detection.evaluate --workspace {workspace} --config_file {config_path}'\
             f' --checkpoints {" ".join(ckpts)} --results {os.path.join(workspace, "results.yaml")}'
+        eval_result = subprocess.run(eval_command, shell=True)
+        print(eval_result)
         
