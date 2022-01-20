@@ -11,7 +11,7 @@ from tfcv import logger
 from tfcv.distribute import MPI_is_distributed, MPI_local_rank
 from tfcv.exception import NanTrainLoss
 from tfcv.hooks import LoggerHook, CheckpointHook
-from tfcv import DefaultTrainer
+from tfcv import DefaultTrainer, HorovodTrainer
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.detection.tasks.genelized_rcnn import GenelizedRCNNTask
@@ -75,7 +75,7 @@ def train(epochs, initial_ckpt=None):
                 os.path.join(cfg.workspace, cfg.checkpoint.name),
                 initial_ckpt
             ))
-        trainer = DefaultTrainer(
+        trainer = HorovodTrainer(
             cfg, 
             global_step, 
             model, 

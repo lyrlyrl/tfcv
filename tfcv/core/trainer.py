@@ -15,7 +15,7 @@ from tfcv.utils.progress import get_tqdm
 
 hvd = LazyImport('horovod.tensorflow')
 
-__all__ = ['DefaultTrainer']
+__all__ = ['DefaultTrainer', 'HorovodTrainer']
 
 class Fatal:
     NAN_LOSS = 'train loss nan'
@@ -71,6 +71,10 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
                 raise 
             assert num_steps > 0
             self.hooks.before_train(num_steps)
+
+            #initialize step
+            self._train_op(next(train_iterator), True)
+
             num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
             start_step = self._global_step.numpy()
             current_step = 0
@@ -78,9 +82,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
                 steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
                 self.hooks.before_epoch(steps_to_run, current_step + start_step)            
                 self.train_loop_begin()
-                for _ in get_tqdm(
-                        range(steps_to_run),
-                        desc=f'start at step {current_step + start_step}: '):
+                for _ in range(steps_to_run):
                     outputs = self._train_op(next(train_iterator))
                     self.hooks.after_train_batch(outputs)
 
@@ -141,16 +143,16 @@ class DefaultTrainer(Trainer):
     def compile(self):
         strategy = tf.distribute.get_strategy()
         
-        def dist_train_step(inputs):
+        def dist_train_step(inputs, init_step=False):
             outputs = strategy.run(
                 self.train_step,
-                args=(inputs,)
+                args=(inputs, init_step)
             )
             return outputs
 
         self._train_op = tf.function(dist_train_step)
 
-    def train_step(self, inputs, init_step=False):
+    def train_step(self, inputs, init_step):
         with tf.GradientTape() as tape:
             raw_loss, to_update, to_output = self._task.train_forward(self._model, inputs)
             if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
@@ -212,32 +214,3 @@ class HorovodTrainer(Trainer):
                 metric.update_state(to_update[metric.name])
             self._global_step.assign_add(1)
         return to_output
-
-    def train(self, num_steps, train_iterator):
-        if not self._train_op:
-            raise 
-        assert num_steps > 0
-        # initlize variables across all ranks
-        self._train_op(next(train_iterator), True)
-
-        num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
-        start_step = self._global_step.numpy()
-        current_step = 0
-        for loop_number in range(num_loops):
-            steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
-            self.hooks.before_epoch(steps_to_run, current_step + start_step)            
-            self.train_loop_begin()
-                
-            for _ in get_tqdm(
-                    range(steps_to_run),
-                    desc=f'start at step {current_step + start_step}: '):
-                outputs = self._train_op(next(train_iterator))
-                self.hooks.after_train_batch(outputs)
-
-            train_throuput, train_loss, metrics = self.train_loop_end()
-            
-            if np.isnan(train_loss):
-                raise NanTrainLoss(current_step, metrics)
-
-            self.hooks.after_epoch(train_throuput, train_loss, metrics)
-            current_step += steps_to_run
