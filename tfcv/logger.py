@@ -3,6 +3,10 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import Mapping
 import json
+import os
+
+import tensorflow as tf
+import numpy as np
 
 class Verbosity:
     OFF = -1
@@ -30,7 +34,6 @@ class Backend(ABC):
     def log(self, timestamp, elapsedtime, step, data):
         pass
     
-
 class Logger:
     def __init__(self, backends):
         self.backends = backends
@@ -56,7 +59,13 @@ class Logger:
         for b in self.backends:
             if b.verbosity >= verbosity:
                 b.log(timestamp, elapsedtime, step, dtype, data)
-    
+
+def autocast(data):
+    if isinstance(data, (np.ndarray, np.generic)):
+        data = data.tolist()
+    elif isinstance(data, tf.Tensor):
+        data = data.numpy().tolist()
+    return data
 
 def default_step_format(step):
     return str(step)
@@ -119,8 +128,8 @@ class FileBackend(Backend):
         proceed=True):
         super().__init__(verbosity)
         self._file_path = file_path
-        self.file = open(self._file_path, 'a' if proceed else 'w')
-        atexit.register(self.file.close)
+        if not proceed and os.path.isfile(self._file_path):
+            os.remove(self._file_path)
     def log(self, timestamp, elapsedtime, step, dtype, data):
         logs = dict(
                     timestamp=str(timestamp.timestamp()),
@@ -139,13 +148,13 @@ class FileBackend(Backend):
             logs['data'] = data
         else:
             assert isinstance(data, Mapping)
-            logs['data'] = data
-
-        self.file.write('LOG {}\n'.format(
-            json.dumps(logs)
-        ))
+            logs['data'] = tf.nest.map_structure(autocast, data)
+        with open(self._file_path, 'a') as fp:
+            fp.write('LOG {}\n'.format(
+                json.dumps(logs)
+            ))
     def flush(self):
-        self.file.flush()
+        pass
 
 class LoggerNotInitialized(Exception):
     pass
