@@ -8,6 +8,8 @@ import os
 import tensorflow as tf
 import numpy as np
 
+from tfcv.common import autocast
+
 class Verbosity:
     OFF = -1
     DEBUG = 0
@@ -59,13 +61,6 @@ class Logger:
         for b in self.backends:
             if b.verbosity >= verbosity:
                 b.log(timestamp, elapsedtime, step, dtype, data)
-
-def autocast(data):
-    if isinstance(data, (np.ndarray, np.generic)):
-        data = data.tolist()
-    elif isinstance(data, tf.Tensor):
-        data = data.numpy().tolist()
-    return data
 
 def default_step_format(step):
     return str(step)

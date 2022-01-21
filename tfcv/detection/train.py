@@ -61,11 +61,12 @@ def train(epochs, initial_ckpt=None):
 
     with strategy.scope():
         global_step = tfcv.create_global_step()
+        trained_steps = tfcv.create_global_step('trained_steps')
         optimizer = create_optimizer(cfg, global_step, dataset.train_size)
         task = create_task(cfg)
         model = task.create_model()
         
-        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
+        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step, trained_steps=trained_steps)
         metrics = create_metrics(cfg)
         hooks = [LoggerHook(logger)]
         if not MPI_is_distributed() or MPI_local_rank() == 0:
@@ -78,6 +79,7 @@ def train(epochs, initial_ckpt=None):
         trainer = DefaultTrainer(
             cfg,
             global_step, 
+            trained_steps,
             model, 
             task, 
             optimizer, 
@@ -86,6 +88,7 @@ def train(epochs, initial_ckpt=None):
         )
         trainer.compile()
         return_code = trainer.train(total_steps, iter(train_data))
+        print('call return')
         sys.exit(return_code)
         
 def create_task(config):
@@ -146,9 +149,10 @@ if __name__ == '__main__':
 
     setup(cfg)
 
-    backends = [logger.FileBackend(logger.Verbosity.INFO, os.path.join(workspace, f'train_log_rank{MPI_local_rank()}.txt'), False)]
+    backends = [logger.FileBackend(logger.Verbosity.INFO, os.path.join(workspace, f'train_log_rank{MPI_local_rank()}.txt'), True)]
     if not MPI_is_distributed() or MPI_local_rank() == 0:
         backends.append(logger.StdOutBackend(logger.Verbosity.INFO))
 
     logger.init(backends)
+
     train(arguments.epochs, arguments.initial_ckpt)

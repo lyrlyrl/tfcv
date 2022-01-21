@@ -2,8 +2,9 @@ import os
 import logging
 
 import tensorflow as tf
+import numpy as np
 
-__all__ = ['set_xla', 'set_amp', 'create_global_step']
+__all__ = ['set_xla', 'set_amp', 'create_global_step', 'autocast']
 
 def set_xla(cfg):
     if cfg.xla:
@@ -12,11 +13,11 @@ def set_xla(cfg):
 
 def set_amp(cfg):
     if cfg.amp:
-        policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16", loss_scale="dynamic")
+        policy = tf.keras.mixed_precision.experimental.Policy("mixed_float16")
         tf.keras.mixed_precision.experimental.set_policy(policy)
         logging.info('AMP is activated')
 
-def create_global_step() -> tf.Variable:
+def create_global_step(name="global_step") -> tf.Variable:
     """Creates a `tf.Variable` suitable for use as a global step counter.
 
     Creating and managing a global step variable may be necessary for
@@ -36,6 +37,13 @@ def create_global_step() -> tf.Variable:
     return tf.Variable(
         0,
         dtype=tf.int64,
-        name="global_step",
+        name=name,
         trainable=False,
         aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA)
+
+def autocast(data):
+    if isinstance(data, (np.ndarray, np.generic)):
+        data = data.tolist()
+    elif isinstance(data, tf.Tensor):
+        data = data.numpy().tolist()
+    return data

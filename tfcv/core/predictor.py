@@ -50,7 +50,6 @@ class Predictor(tf.Module):
         return self._task.inference_forward(self._model, inputs)
     def predict_batch(self, inputs):
         outputs = self._predict_op(inputs)
-        print(outputs, 'aaaaaaaaaaaaaaaaaaaa')
         if self._strategy:
             outputs = merge_replica_results(self._strategy, outputs)
         return outputs

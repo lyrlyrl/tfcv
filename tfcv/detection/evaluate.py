@@ -55,7 +55,6 @@ def evaluate(ckpts, results):
     eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size, strategy=strategy)
 
     eval_results = {}
-    eval_results_dir = os.path.join(cfg.workspace, 'run_eval_results.yaml')
 
     coco_metric = COCOEvaluationMetric(
         os.path.expanduser(os.path.join(cfg.data.dir, cfg.data.val_json)), cfg.include_mask)
@@ -80,9 +79,9 @@ def evaluate(ckpts, results):
             outputs = tf.nest.map_structure(_merge, *outputs)
             predictions = process_predictions(outputs)
             metric = coco_metric.predict_metric_fn(predictions)
-            eval_results[ckpt] = metric
+            eval_results[ckpt] = tf.nest.map_structure(tfcv.autocast, metric)
         
-    with open(eval_results_dir, 'w') as fp:
+    with open(results, 'w') as fp:
         yaml.dump(eval_results, fp, Dumper=yaml.CDumper)
 
 if __name__ == '__main__':

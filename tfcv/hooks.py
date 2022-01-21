@@ -17,9 +17,9 @@ class HookList(object):
         for cb in self.hooks:
             cb.set_trainer(trainer)
 
-    def before_train(self, train_steps):
+    def before_train(self):
         for cb in self.hooks:
-            cb.before_train(train_steps)
+            cb.before_train()
             
     def before_epoch(self, steps, current_step, epoch_number=None):
         for cb in self.hooks:
@@ -68,13 +68,11 @@ class Hook(object):
         return self._chief_only
     def set_trainer(self, trainer):
         self.trainer=trainer
-    def before_train(self, train_steps):
+    def before_train(self):
         pass
     def before_epoch(self, steps, current_step, epoch_number):
         pass
     def after_epoch(self, train_throuput, train_loss, metrics):
-        pass
-    def before_train(self, steps):
         pass
     def after_train(self, success, addtional_message):
         pass
@@ -99,23 +97,28 @@ class CheckpointHook(Hook):
         self._ckpt_interval = ckpt_interval
         self._checkpoint = checkpoint
         self._latest_step = 0
-    def before_train(self, *args):
+    def save(self):
+        self.trainer.trained_steps.assign(self.trainer.global_step)
+        self._checkpoint.save(self._ckpt_path)
+    def before_train(self):
         if self._initial_ckpt != None:
+            print(f'restore from {self._initial_ckpt}')
             self._checkpoint.restore(self._initial_ckpt)
     def before_epoch(self, steps, current_step, epoch_number):
         self._latest_step += steps
     def after_epoch(self, *args):
         if self._latest_step >= self._ckpt_interval:
-            self._checkpoint.save(self._ckpt_path)
+            self.save()
             self._latest_step = 0
     def after_train(self, success, *args):
         if self._latest_step > 0 and success:
-            self._checkpoint.save(self._ckpt_path)
+            self.save()
     
 class LoggerHook(Hook):
     def __init__(self, logger, add_sys_perf=False):
         super().__init__(name='logger')
         self._logger = logger
+        self._latest_step = 0
     def before_epoch(self, steps, current_step, epoch_number):
         if epoch_number != None:
             step = (epoch_number, current_step)
@@ -129,7 +132,11 @@ class LoggerHook(Hook):
         learning_rate = self.trainer.optimizer.learning_rate
         if callable(learning_rate):
             learning_rate = learning_rate()
-        metrics['learning_rate'] = learning_rate.numpy()
+        try:
+            learning_rate = learning_rate.numpy()
+        except:
+            pass
+        metrics['learning_rate'] = learning_rate
         self._logger.metric(self._latest_step, metrics)
     def after_train(self, success, additional_msg = None):
         if success:

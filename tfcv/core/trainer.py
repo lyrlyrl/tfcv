@@ -6,12 +6,10 @@ import numpy as np
 
 import time
 
-from tfcv import logger
 from tfcv.hooks import HookList, Hook
 from tfcv.distribute import MPI_is_distributed, MPI_size
 from tfcv.utils.lazy_import import LazyImport
 from tfcv.exception import NanTrainLoss, ManuallyInterrupt
-from tfcv.utils.progress import get_tqdm
 
 hvd = LazyImport('horovod.tensorflow')
 
@@ -26,6 +24,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             self, 
             params,
             global_step: tf.Variable,
+            trained_steps: tf.Variable,
             model: tf.keras.Model,
             task,
             optimizer=None,
@@ -34,6 +33,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         super(Trainer, self).__init__(name='trainer')
         self._params = params
         self._global_step = global_step
+        self._trained_steps = trained_steps
         self._model = model
         self._task = task
         self._optimizer = optimizer
@@ -61,6 +61,14 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
         return self._task
 
     @property
+    def global_step(self):
+        return self._global_step
+
+    @property
+    def trained_steps(self):
+        return self._trained_steps
+
+    @property
     def train_loss(self):
         """Accesses the training loss metric object."""
         return self._train_loss
@@ -70,10 +78,9 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             if not self._train_op:
                 raise 
             assert num_steps > 0
-            self.hooks.before_train(num_steps)
-
-            #initialize step
-            self._train_op(next(train_iterator), True)
+            
+            self.hooks.before_train()            
+            num_steps = num_steps - (self._global_step.numpy() - self._trained_steps.numpy())
 
             num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
             start_step = self._global_step.numpy()
@@ -143,16 +150,16 @@ class DefaultTrainer(Trainer):
     def compile(self):
         strategy = tf.distribute.get_strategy()
         
-        def dist_train_step(inputs, init_step=False):
+        def dist_train_step(inputs):
             outputs = strategy.run(
                 self.train_step,
-                args=(inputs, init_step)
+                args=(inputs,)
             )
             return outputs
 
         self._train_op = tf.function(dist_train_step)
 
-    def train_step(self, inputs, init_step):
+    def train_step(self, inputs):
         with tf.GradientTape() as tape:
             raw_loss, to_update, to_output = self._task.train_forward(self._model, inputs)
             if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
@@ -164,11 +171,10 @@ class DefaultTrainer(Trainer):
         if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
             grads = self._optimizer.get_unscaled_gradients(grads)
         self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
-        if not init_step:
-            self._train_loss.update_state(raw_loss)
-            for metric in self._metrics:
-                metric.update_state(to_update[metric.name])
-            self._global_step.assign_add(1)
+        self._train_loss.update_state(raw_loss)
+        for metric in self._metrics:
+            metric.update_state(to_update[metric.name])
+        self._global_step.assign_add(1)
         return to_output
 
 class HorovodTrainer(Trainer):
@@ -207,10 +213,58 @@ class HorovodTrainer(Trainer):
         if first_batch:
             hvd.broadcast_variables(self._model.variables, root_rank=0)
             hvd.broadcast_variables(self._optimizer.variables(), root_rank=0)
-            hvd.broadcast_variables(self._global_step, root_rank=0)
+            hvd.broadcast_variables([self._global_step, self._trained_steps], root_rank=0)
         else:
             self._train_loss.update_state(raw_loss)
             for metric in self._metrics:
                 metric.update_state(to_update[metric.name])
             self._global_step.assign_add(1)
         return to_output
+    def train(self, num_steps, train_iterator):
+        try:
+            if not self._train_op:
+                raise 
+            assert num_steps > 0
+            #initialize step
+            self._train_op(next(train_iterator), True)
+            
+            self.hooks.before_train()            
+            num_steps = num_steps - (self._global_step.numpy() - self._trained_steps.numpy())
+
+            num_loops = math.ceil(num_steps / self._params.solver.steps_per_loop)
+            start_step = self._global_step.numpy()
+            current_step = 0
+            for loop_number in range(num_loops):
+                steps_to_run = (loop_number+1) * self._params.solver.steps_per_loop - current_step
+                self.hooks.before_epoch(steps_to_run, current_step + start_step)            
+                self.train_loop_begin()
+                for _ in range(steps_to_run):
+                    outputs = self._train_op(next(train_iterator))
+                    self.hooks.after_train_batch(outputs)
+
+                train_throuput, train_loss, metrics = self.train_loop_end()
+                
+                if np.isnan(train_loss):
+                    raise NanTrainLoss(current_step, metrics)
+
+                self.hooks.after_epoch(train_throuput, train_loss, metrics)
+                current_step += steps_to_run
+        except NanTrainLoss:
+            self.hooks.after_train(False, Fatal.NAN_LOSS)
+            code = Fatal.NAN_LOSS
+        except tf.errors.OutOfRangeError:
+            self.hooks.after_train(False, Fatal.DATA_EXAUSTED)
+            code = Fatal.DATA_EXAUSTED
+        except (KeyboardInterrupt, ManuallyInterrupt):
+            self.hooks.after_train(False, 'manually')
+            code = 'manually'
+        except Exception as e:
+            print(e)
+            self.hooks.after_train(False, e)
+            code = str(e)
+        else:
+            self.hooks.after_train(True)
+            code = 0
+        finally:
+            self.hooks.after_run()
+            return code

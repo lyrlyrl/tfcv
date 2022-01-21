@@ -99,3 +99,9 @@ TRAIN_GROUP.add_argument(
     metavar='N',
     help='Number of steps per checkpoint'
 )
+
+COMMON_GROUP.add_argument(
+    '--reinitlize',
+    action='store_true',
+    help='remove historys'
+)
