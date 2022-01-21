@@ -140,7 +140,7 @@ class LoggerHook(Hook):
         self._logger.metric(self._latest_step, metrics)
     def after_train(self, success, additional_msg = None):
         if success:
-            self._logger.finalize(self._latest_step, True)
+            self._logger.finalize(self._latest_step, 'success')
         else:
             assert additional_msg != None
             self._logger.finalize(self._latest_step, additional_msg)
