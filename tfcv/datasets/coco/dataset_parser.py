@@ -99,121 +99,118 @@ def dataset_parser(value, mode, params, use_instance_mask, seed=None, regenerate
 
     example_decoder = create_example_decoder()
 
-    with tf.xla.experimental.jit_scope(compile_ops=True):
+    with tf.name_scope('parser'):
 
-        with tf.name_scope('parser'):
+        data = example_decoder.decode(value)
 
-            data = example_decoder.decode(value)
+        data['groundtruth_is_crowd'] = process_groundtruth_is_crowd(data)
 
-            data['groundtruth_is_crowd'] = process_groundtruth_is_crowd(data)
+        image = tf.image.convert_image_dtype(data['image'], dtype=tf.float32)
 
-            image = tf.image.convert_image_dtype(data['image'], dtype=tf.float32)
+        image = preprocess_ops.normalize_image(image, params.data.pixel_std, params.data.pixel_mean)
 
-            image = preprocess_ops.normalize_image(image, params.data.pixel_std, params.data.pixel_mean)
+        source_id = process_source_id(data['source_id'])
 
-            source_id = process_source_id(data['source_id'])
+        if mode == 'eval':
 
-            if mode == 'eval':
+            features = {
+                'source_ids': source_id,
+            }
 
-                features = {
-                    'source_ids': source_id,
-                }
+            features["images"], features["image_info"], _, _ = preprocess_image(
+                image,
+                boxes=None,
+                instance_masks=None,
+                image_size=params.data.image_size,
+                max_level=params.max_level,
+                augment_input_data=False,
+                seed=seed
+            )
 
-                features["images"], features["image_info"], _, _ = preprocess_image(
-                    image,
-                    boxes=None,
-                    instance_masks=None,
-                    image_size=params.data.image_size,
-                    max_level=params.max_level,
-                    augment_input_data=False,
-                    seed=seed
+            return features
+
+        elif mode == 'train':
+
+            features = {
+                'source_ids': source_id
+            }
+
+            boxes, classes, indices, instance_masks = process_boxes_classes_indices_for_training(
+                data,
+                skip_crowd_during_training=params.data.skip_crowd_during_training,
+                use_category=params.data.use_category,
+                use_instance_mask=use_instance_mask
+            )
+
+            image, image_info, boxes, instance_masks = preprocess_image(
+                image,
+                boxes=boxes,
+                instance_masks=instance_masks,
+                image_size=params.data.image_size,
+                max_level=params.max_level,
+                augment_input_data=params.data.augment_input,
+                seed=seed
+            )
+
+            features.update({
+                'images': image,
+                'image_info': image_info,
+            })
+
+            padded_image_size = image.get_shape().as_list()[:2]
+
+            if use_instance_mask:
+                features['cropped_gt_masks'] = process_gt_masks_for_training(
+                    instance_masks,
+                    boxes,
+                    gt_mask_size=params.mrcnn.gt_mask_size,
+                    padded_image_size=padded_image_size,
+                    max_num_instances=MAX_NUM_INSTANCES
                 )
 
-                return features
+            (score_targets, box_targets), input_anchor = process_targets_for_training(
+                padded_image_size=padded_image_size,
+                boxes=boxes,
+                classes=classes,
+                params=params
+            )
 
-            elif mode == 'train':
+            features['gt_boxes'], features['gt_classes'], additional_labels = process_labels_for_training(
+                image_info, boxes, classes, score_targets, box_targets,
+                max_num_instances=MAX_NUM_INSTANCES,
+                min_level=params.min_level,
+                max_level=params.max_level
+            )
 
-                features = {
-                    'source_ids': source_id
-                }
+            features.update(additional_labels)
 
-                boxes, classes, indices, instance_masks = process_boxes_classes_indices_for_training(
-                    data,
-                    skip_crowd_during_training=params.data.skip_crowd_during_training,
-                    use_category=params.data.use_category,
-                    use_instance_mask=use_instance_mask
-                )
+            # Features
+            # {
+            #   'source_ids': <tf.Tensor 'parser/StringToNumber:0' shape=() dtype=float32>,
+            #   'images': <tf.Tensor 'parser/pad_to_bounding_box/Squeeze:0' shape=(1024, 1024, 3) dtype=float32>,
+            #   'image_info': <tf.Tensor 'parser/stack_1:0' shape=(5,) dtype=float32>,
+            #   'cropped_gt_masks': <tf.Tensor 'parser/Reshape_4:0' shape=(100, 116, 116) dtype=float32>,
+            #   'gt_boxes': <tf.Tensor 'parser/Reshape_20:0' shape=(100, 4) dtype=float32>,
+            #   'gt_classes': <tf.Tensor 'parser/Reshape_22:0' shape=(100, 1) dtype=float32>,
+            #   'score_targets_2': <tf.Tensor 'parser/Reshape_9:0' shape=(256, 256, 3) dtype=int32>,
+            #   'box_targets_2': <tf.Tensor 'parser/Reshape_14:0' shape=(256, 256, 12) dtype=float32>,
+            #   'score_targets_3': <tf.Tensor 'parser/Reshape_10:0' shape=(128, 128, 3) dtype=int32>,
+            #   'box_targets_3': <tf.Tensor 'parser/Reshape_15:0' shape=(128, 128, 12) dtype=float32>,
+            #   'score_targets_4': <tf.Tensor 'parser/Reshape_11:0' shape=(64, 64, 3) dtype=int32>,
+            #   'box_targets_4': <tf.Tensor 'parser/Reshape_16:0' shape=(64, 64, 12) dtype=float32>,
+            #   'score_targets_5': <tf.Tensor 'parser/Reshape_12:0' shape=(32, 32, 3) dtype=int32>,
+            #   'box_targets_5': <tf.Tensor 'parser/Reshape_17:0' shape=(32, 32, 12) dtype=float32>,
+            #   'score_targets_6': <tf.Tensor 'parser/Reshape_13:0' shape=(16, 16, 3) dtype=int32>,
+            #   'box_targets_6': <tf.Tensor 'parser/Reshape_18:0' shape=(16, 16, 12) dtype=float32>,
+            # }
 
-                image, image_info, boxes, instance_masks = preprocess_image(
-                    image,
-                    boxes=boxes,
-                    instance_masks=instance_masks,
-                    image_size=params.data.image_size,
-                    max_level=params.max_level,
-                    augment_input_data=params.data.augment_input,
-                    seed=seed
-                )
+            # due to the way keras losses work we are passing all the targets as features
+            # it is impossible to access labels in custom losses that we are using
+            # Labels
+            # {
+            # }
 
-                features.update({
-                    'images': image,
-                    'image_info': image_info,
-                })
-
-                padded_image_size = image.get_shape().as_list()[:2]
-
-                if use_instance_mask:
-                    features['cropped_gt_masks'] = process_gt_masks_for_training(
-                        instance_masks,
-                        boxes,
-                        gt_mask_size=params.mrcnn.gt_mask_size,
-                        padded_image_size=padded_image_size,
-                        max_num_instances=MAX_NUM_INSTANCES
-                    )
-
-                with tf.xla.experimental.jit_scope(compile_ops=False):
-                    (score_targets, box_targets), input_anchor = process_targets_for_training(
-                        padded_image_size=padded_image_size,
-                        boxes=boxes,
-                        classes=classes,
-                        params=params
-                    )
-
-                features['gt_boxes'], features['gt_classes'], additional_labels = process_labels_for_training(
-                    image_info, boxes, classes, score_targets, box_targets,
-                    max_num_instances=MAX_NUM_INSTANCES,
-                    min_level=params.min_level,
-                    max_level=params.max_level
-                )
-
-                features.update(additional_labels)
-
-                # Features
-                # {
-                #   'source_ids': <tf.Tensor 'parser/StringToNumber:0' shape=() dtype=float32>,
-                #   'images': <tf.Tensor 'parser/pad_to_bounding_box/Squeeze:0' shape=(1024, 1024, 3) dtype=float32>,
-                #   'image_info': <tf.Tensor 'parser/stack_1:0' shape=(5,) dtype=float32>,
-                #   'cropped_gt_masks': <tf.Tensor 'parser/Reshape_4:0' shape=(100, 116, 116) dtype=float32>,
-                #   'gt_boxes': <tf.Tensor 'parser/Reshape_20:0' shape=(100, 4) dtype=float32>,
-                #   'gt_classes': <tf.Tensor 'parser/Reshape_22:0' shape=(100, 1) dtype=float32>,
-                #   'score_targets_2': <tf.Tensor 'parser/Reshape_9:0' shape=(256, 256, 3) dtype=int32>,
-                #   'box_targets_2': <tf.Tensor 'parser/Reshape_14:0' shape=(256, 256, 12) dtype=float32>,
-                #   'score_targets_3': <tf.Tensor 'parser/Reshape_10:0' shape=(128, 128, 3) dtype=int32>,
-                #   'box_targets_3': <tf.Tensor 'parser/Reshape_15:0' shape=(128, 128, 12) dtype=float32>,
-                #   'score_targets_4': <tf.Tensor 'parser/Reshape_11:0' shape=(64, 64, 3) dtype=int32>,
-                #   'box_targets_4': <tf.Tensor 'parser/Reshape_16:0' shape=(64, 64, 12) dtype=float32>,
-                #   'score_targets_5': <tf.Tensor 'parser/Reshape_12:0' shape=(32, 32, 3) dtype=int32>,
-                #   'box_targets_5': <tf.Tensor 'parser/Reshape_17:0' shape=(32, 32, 12) dtype=float32>,
-                #   'score_targets_6': <tf.Tensor 'parser/Reshape_13:0' shape=(16, 16, 3) dtype=int32>,
-                #   'box_targets_6': <tf.Tensor 'parser/Reshape_18:0' shape=(16, 16, 12) dtype=float32>,
-                # }
-
-                # due to the way keras losses work we are passing all the targets as features
-                # it is impossible to access labels in custom losses that we are using
-                # Labels
-                # {
-                # }
-
-                return features
+            return features
 
 
 def preprocess_image(image, boxes, instance_masks, image_size, max_level, augment_input_data=False, seed=None):

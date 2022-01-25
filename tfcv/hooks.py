@@ -1,8 +1,17 @@
 import logging
+from typing import Callable
+import os
 
 import tensorflow as tf
 
-__all__ = ['HookList', 'Hook', 'CheckpointHook', 'LoggerHook']
+from tensorflow.keras import Model
+
+from tfcv.distribute import MPI_is_distributed, MPI_local_rank
+from tfcv.utils.lazy_import import LazyImport
+
+hvd = LazyImport('horovod.tensorflow')
+
+__all__ = ['HookList', 'Hook', 'CheckpointAndBroadcastHook', 'LoggerHook']
 
 class HookList(object):
 
@@ -83,33 +92,55 @@ class Hook(object):
     def after_evaluate(self, outputs):
         pass
 
-class CheckpointHook(Hook):
+class CheckpointAndBroadcastHook(Hook):
 
     def __init__(
             self,
             checkpoint: tf.train.Checkpoint,
-            ckpt_interval,
-            ckpt_path,
-            initial_ckpt=None):
+            ckpt_dir,
+            ckpt_name,
+            ckpt_interval=10000,
+            force_sync=False,
+            initialize_fn: Callable[[Model], bool] = None):
         super().__init__(name='checkpoint')
-        self._ckpt_path = ckpt_path
-        self._initial_ckpt = initial_ckpt
+        self._ckpt_dir = ckpt_dir
+        self._ckpt_name = ckpt_name
         self._ckpt_interval = ckpt_interval
         self._checkpoint = checkpoint
         self._latest_step = 0
+        self._initialize_fn = initialize_fn
+        self._force_sync = force_sync
+        self._logger = logging.getLogger(self.name)
+    def set_trainer(self, trainer):
+        super(CheckpointAndBroadcastHook, self).set_trainer(trainer)
     def save(self):
-        self.trainer.trained_steps.assign(self.trainer.global_step)
-        self._checkpoint.save(self._ckpt_path)
+        if MPI_local_rank() == 0:
+            self._checkpoint.save(os.path.join(self._ckpt_dir, self._ckpt_name))
+    def broadcast(self):
+        hvd.broadcast_variables(self.trainer._model.variables, root_rank=0)
+        hvd.broadcast_variables(self.trainer._optimizer.variables(), root_rank=0)
+        hvd.broadcast_variables([self.trainer._global_step], root_rank=0)
     def before_train(self):
-        if self._initial_ckpt != None:
-            print(f'restore from {self._initial_ckpt}')
-            self._checkpoint.restore(self._initial_ckpt)
-    def before_epoch(self, steps, current_step, epoch_number):
+        if MPI_local_rank() == 0:
+            latest = tf.train.latest_checkpoint(self._ckpt_dir)
+            if latest != None:
+                self._checkpoint.restore(latest)
+                self._logger.info(f'restored from checkpoint {latest}')
+            elif self._initialize_fn != None:
+                assert self._initialize_fn(self.trainer.model)
+                self._logger.info('initialized with function')
+            else:
+                self._logger.info('random initialized')
+        if MPI_is_distributed():
+            self.broadcast()
+    def before_epoch(self, steps, *args):
         self._latest_step += steps
     def after_epoch(self, *args):
         if self._latest_step >= self._ckpt_interval:
             self.save()
             self._latest_step = 0
+        if self._force_sync and MPI_is_distributed():
+            self.broadcast()
     def after_train(self, success, *args):
         if self._latest_step > 0 and success:
             self.save()

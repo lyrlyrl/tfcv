@@ -42,44 +42,35 @@ PARSER.add_argument(
 
 def evaluate(ckpts, results):
     dataset = Dataset()
-    if cfg.num_gpus > 1:
-        strategy = tf.distribute.MirroredStrategy(
-            devices=["device:GPU:%d" % i for i in range(cfg.num_gpus)]
-        )
-    elif cfg.num_gpus == 1:
-        strategy = tf.distribute.OneDeviceStrategy('device:GPU:0')
-    else:
-        strategy = tf.distribute.OneDeviceStrategy('device:CPU:0')
-    cfg.global_eval_batch_size = cfg.eval_batch_size * strategy.num_replicas_in_sync
+    cfg.global_eval_batch_size = cfg.eval_batch_size
     cfg.freeze()
-    eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size, strategy=strategy)
+    eval_data = dataset.eval_fn(batch_size=cfg.global_eval_batch_size)
 
     eval_results = {}
 
     coco_metric = COCOEvaluationMetric(
         os.path.expanduser(os.path.join(cfg.data.dir, cfg.data.val_json)), cfg.include_mask)
 
-    with strategy.scope():
-        task = create_task(cfg)
-        model = task.create_model()
+    task = create_task(cfg)
+    model = task.create_model()
 
-        checkpoint = tf.train.Checkpoint(model=model)
+    checkpoint = tf.train.Checkpoint(model=model)
 
-        predictor = Predictor(cfg, model, task)
-        predictor.compile()
-        
-        for ckpt in ckpts:
-            checkpoint.restore(ckpt).expect_partial()
-            outputs = []
-            for inputs in eval_data:
-                outputs.append(predictor.predict_batch(inputs))
-                
-            def _merge(*args):
-                return tf.concat(args, 0).numpy()
-            outputs = tf.nest.map_structure(_merge, *outputs)
-            predictions = process_predictions(outputs)
-            metric = coco_metric.predict_metric_fn(predictions)
-            eval_results[ckpt] = tf.nest.map_structure(tfcv.autocast, metric)
+    predictor = Predictor(cfg, model, task)
+    predictor.compile()
+    
+    for ckpt in ckpts:
+        checkpoint.restore(ckpt).expect_partial()
+        outputs = []
+        for inputs in eval_data:
+            outputs.append(predictor.predict_batch(inputs))
+            
+        def _merge(*args):
+            return tf.concat(args, 0).numpy()
+        outputs = tf.nest.map_structure(_merge, *outputs)
+        predictions = process_predictions(outputs)
+        metric = coco_metric.predict_metric_fn(predictions)
+        eval_results[ckpt] = tf.nest.map_structure(tfcv.autocast, metric)
         
     with open(results, 'w') as fp:
         yaml.dump(eval_results, fp, Dumper=yaml.CDumper)

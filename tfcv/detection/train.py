@@ -8,14 +8,17 @@ import tensorflow as tf
 
 import tfcv
 from tfcv import logger
-from tfcv.distribute import MPI_is_distributed, MPI_local_rank
+from tfcv.distribute import MPI_is_distributed, MPI_local_rank, MPI_size
 from tfcv.exception import NanTrainLoss
-from tfcv.hooks import LoggerHook, CheckpointHook
-from tfcv import DefaultTrainer
+from tfcv.hooks import LoggerHook, CheckpointAndBroadcastHook
+from tfcv import HorovodTrainer
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.detection.tasks.genelized_rcnn import GenelizedRCNNTask
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
+
+from tfcv.utils.lazy_import import LazyImport
+hvd = LazyImport('horovod.tensorflow')
 
 PARSER = argparse.ArgumentParser(
     description='as child process'
@@ -35,61 +38,55 @@ PARSER.add_argument(
     type=int,
     required=True
 )
-PARSER.add_argument(
-    '--initial_ckpt',
-    type=str,
-)
 
 def setup(config):
-    tfcv.set_xla(config)
-
+    if MPI_is_distributed():
+        hvd.init()
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
-
+    if gpus and MPI_is_distributed():
+        tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
+    tfcv.set_xla(config)
     tfcv.set_amp(config)
 
-def train(epochs, initial_ckpt=None):
-    strategy = tfcv.get_strategy(cfg)
-    # cfg.replicas = strategy.num_replicas_in_sync
-    cfg.global_train_batch_size = cfg.train_batch_size * strategy.num_replicas_in_sync
+def train(epochs):
+    cfg.global_train_batch_size = cfg.train_batch_size * MPI_size()
     cfg.freeze()
     
     dataset = Dataset()
-    train_data = dataset.train_fn(cfg.global_train_batch_size, strategy=strategy)
+    train_data = dataset.train_fn(cfg.train_batch_size)
+
     total_steps = math.ceil(epochs * dataset.train_size / cfg.global_train_batch_size)
 
-    with strategy.scope():
-        global_step = tfcv.create_global_step()
-        trained_steps = tfcv.create_global_step('trained_steps')
-        optimizer = create_optimizer(cfg, global_step, dataset.train_size)
-        task = create_task(cfg)
-        model = task.create_model()
-        
-        checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step, trained_steps=trained_steps)
-        metrics = create_metrics(cfg)
-        hooks = [LoggerHook(logger)]
-        if not MPI_is_distributed() or MPI_local_rank() == 0:
-            hooks.append(CheckpointHook(
-                checkpoint,
-                cfg.solver.checkpoint_interval,
-                os.path.join(cfg.workspace, cfg.checkpoint.name),
-                initial_ckpt
-            ))
-        trainer = DefaultTrainer(
-            cfg,
-            global_step, 
-            trained_steps,
-            model, 
-            task, 
-            optimizer, 
-            metrics, 
-            hooks
+    global_step = tfcv.create_global_step()
+    optimizer = create_optimizer(cfg, global_step, dataset.train_size)
+    task = create_task(cfg)
+    model = task.create_model()
+    
+    checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
+    metrics = create_metrics(cfg)
+    hooks = [
+        LoggerHook(logger),
+        CheckpointAndBroadcastHook(
+            checkpoint,
+            cfg.workspace,
+            cfg.checkpoint.name,
+            cfg.solver.checkpoint_interval
         )
-        trainer.compile()
-        return_code = trainer.train(total_steps, iter(train_data))
-        print('call return')
-        sys.exit(return_code)
+    ]
+    trainer = HorovodTrainer(
+        cfg,
+        global_step,
+        model, 
+        task, 
+        optimizer, 
+        metrics, 
+        hooks
+    )
+    trainer.compile()
+    return_code = trainer.train(total_steps, iter(train_data))
+    sys.exit(return_code)
         
 def create_task(config):
     if config.meta_arch == 'genelized_rcnn':
@@ -155,4 +152,4 @@ if __name__ == '__main__':
 
     logger.init(backends)
 
-    train(arguments.epochs, arguments.initial_ckpt)
+    train(arguments.epochs)

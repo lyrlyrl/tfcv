@@ -29,6 +29,7 @@ import tensorflow as tf
 
 from tfcv.config import config as cfg
 from tfcv.datasets.coco.dataset_parser import dataset_parser
+from tfcv.distribute import MPI_is_distributed, MPI_local_rank, MPI_size
 
 TRAIN_SPLIT_PATTERN = 'train*.tfrecord'
 EVAL_SPLIT_PATTERN = 'val*.tfrecord'
@@ -45,9 +46,11 @@ class Dataset:
 
         self._logger = logging.getLogger('dataset')
 
-    def train_fn(self, batch_size, strategy=None):
+    def train_fn(self, batch_size):
         """ Input function for training. """
         data = tf.data.TFRecordDataset(self._train_files)
+        if MPI_is_distributed():
+            data = data.shard(MPI_size(), MPI_local_rank())
 
         data = data.cache()
         data = data.shuffle(buffer_size=4096, reshuffle_each_iteration=True, seed=cfg.seed)
@@ -69,16 +72,13 @@ class Dataset:
         if cfg.use_synthetic_data:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
-        if isinstance(strategy, tf.distribute.Strategy):
-            data = strategy.experimental_distribute_dataset(data)
-        else:
-            data = data.prefetch(buffer_size=tf.data.AUTOTUNE)
+        # data = data.prefetch(buffer_size=tf.data.AUTOTUNE)
         # data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         # data = data.with_options(self._data_options)
 
         return data
 
-    def eval_fn(self, batch_size, strategy=None):
+    def eval_fn(self, batch_size):
         """ Input function for validation. """
         data = tf.data.TFRecordDataset(self._eval_files)
 
@@ -106,10 +106,7 @@ class Dataset:
             self._logger.info("Using fake dataset loop")
             data = data.take(1).cache().repeat()
             data = data.take(5000 // batch_size)
-        if isinstance(strategy, tf.distribute.Strategy):
-            data = strategy.experimental_distribute_dataset(data)
-        else:
-            data = data.prefetch(buffer_size=tf.data.AUTOTUNE)
+        data = data.prefetch(buffer_size=tf.data.AUTOTUNE)
         # data = data.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
         # FIXME: This is a walkaround for a bug and should be removed as soon as the fix is merged

@@ -8,7 +8,8 @@ __all__ = ['set_xla', 'set_amp', 'create_global_step', 'autocast']
 
 def set_xla(cfg):
     if cfg.xla:
-        os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit'
+        # os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit'
+        tf.config.optimizer.set_jit('autoclustering')
         logging.info('XLA is activated')
 
 def set_amp(cfg):
