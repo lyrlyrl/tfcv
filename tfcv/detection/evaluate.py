@@ -57,13 +57,12 @@ def evaluate(ckpts, results):
     checkpoint = tf.train.Checkpoint(model=model)
 
     predictor = Predictor(cfg, model, task)
-    predictor.compile()
     
     for ckpt in ckpts:
         checkpoint.restore(ckpt).expect_partial()
         outputs = []
         for inputs in eval_data:
-            outputs.append(predictor.predict_batch(inputs))
+            outputs.append(predictor.predict_step(inputs))
             
         def _merge(*args):
             return tf.concat(args, 0).numpy()

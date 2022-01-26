@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from tfcv.ops import preprocess_ops
+
 from tfcv.utils.amp import fp16_to_fp32_nested
 from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.ops.losses.fast_rcnn_loss import FastRCNNLoss
@@ -58,6 +60,22 @@ class GenelizedRCNNTask(DetectionTask):
             images=inputs['images'],
             image_info=inputs['image_info'],
             training=False)
-        detections['source_ids'] = inputs['source_ids']
         detections['image_info'] = inputs['image_info']
+        if 'source_ids' in inputs:
+            detections['source_ids'] = inputs['source_ids']
         return detections
+    
+    def preprocess(self, image):
+        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+        image = preprocess_ops.normalize_image(image, self._params.data.pixel_std, self._params.data.pixel_mean)
+        
+        image, image_info, _, _ = preprocess_ops.resize_and_pad(
+            image=image,
+            target_size=self._params.data.image_size,
+            stride=2 ** self._params.max_level,
+            boxes=None,
+            masks=None
+        )
+        return {'images': image, 'image_info': image_info}
+
+        

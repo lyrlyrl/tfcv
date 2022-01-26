@@ -15,3 +15,7 @@ class Task(object, metaclass = abc.ABCMeta):
     @abc.abstractmethod
     def inference_forward(self, model, inputs):
         pass
+    def preprocess(self, image):
+        return image
+    def postprocess(self, predictions):
+        return predictions
