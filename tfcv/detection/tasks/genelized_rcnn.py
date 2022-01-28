@@ -56,7 +56,7 @@ class GenelizedRCNNTask(DetectionTask):
         return losses
         
     def inference_forward(self, model, inputs):
-        detections = model(
+        detections = model.call(
             images=inputs['images'],
             image_info=inputs['image_info'],
             training=False)

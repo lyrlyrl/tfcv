@@ -53,7 +53,7 @@ class GenelizedRCNN(tf.keras.Model):
         gt_classes=None,
         cropped_gt_masks=None,
         training=None):
-        batch_size, image_height, image_width, _ = images.get_shape().as_list()
+        _, image_height, image_width, _ = images.get_shape().as_list()
         outputs = dict()
         if not anchor_boxes:
             all_anchors = anchors.Anchors(self.cfg.min_level, self.cfg.max_level,

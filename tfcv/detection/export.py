@@ -2,8 +2,10 @@ import logging
 import argparse
 import os
 import yaml
-
+import onnx_graphsurgeon as gs
 import tensorflow as tf
+import onnx
+from tf2onnx import tfonnx, optimizer, tf_loader
 
 from tfcv import Predictor
 from tfcv.config import update_cfg, config as cfg
@@ -81,13 +83,26 @@ def export(ckpt, savedmodel_dir, onnx_dir=None):
     else:
         input_shape = input_shape + list(cfg.export.image_size) + [3]
 
-    tf.saved_model.save(
-        predictor,
-        savedmodel_dir,
-        signatures=predictor.service_step.get_concrete_function(
-            tf.TensorSpec(input_shape, tf.uint8)
-        )
-    )
+    # tf.saved_model.save(
+    #     predictor,
+    #     savedmodel_dir,
+    #     signatures=predictor.service_step.get_concrete_function(
+    #         tf.TensorSpec(input_shape, tf.uint8)
+    #     )
+    # )
+
+    if onnx_dir != None:
+        graph_def, inputs, outputs = tf_loader.from_saved_model(savedmodel_dir, None, None, "serve",
+                                                                ["serving_default"])
+        with tf.Graph().as_default() as tf_graph:
+            tf.import_graph_def(graph_def, name="")
+        with tf_loader.tf_session(graph=tf_graph):
+            onnx_graph = tfonnx.process_tf_graph(tf_graph, input_names=inputs, output_names=outputs, opset=15)
+        onnx_model = optimizer.optimize_graph(onnx_graph).make_model("Converted from {}".format(savedmodel_dir))
+        graph = gs.import_onnx(onnx_model)
+        nms_node = graph.find_node_by_op("NonMaxSuppression")
+        # onnx.save(onnx_model, onnx_dir)
+        print(nms_node)
 
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
