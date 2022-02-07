@@ -1,0 +1,25 @@
+_base: '_base.yaml'
+data:
+  image_size: 512
+# model
+meta_arch: 'efficientnet_det'
+max_level: 7
+min_level: 3
+anchor:
+  num_scales: 3
+  scale: 4.0
+  aspect_ratios:
+  - !!python/tuple
+    - 1.0
+    - 1.0
+  - !!python/tuple
+    - 1.4
+    - 0.7
+  - !!python/tuple
+    - 0.7
+    - 1.4
+backbone:
+  name: 'efficientnet-b0'
+fpn:
+  num_filters: 64
+  cell_repeats: 3

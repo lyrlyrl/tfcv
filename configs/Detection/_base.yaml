@@ -10,4 +10,3 @@ data:
 num_classes: 91
 #train
 from_scratch: false
-task: 'detection'
