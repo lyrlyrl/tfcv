@@ -29,5 +29,5 @@ class Retinanet(tf.keras.Model):
         training=None):
         backbone_feats = self.backbone(images, training=training)
         fpn_feats = self.fpn(backbone_feats, training=training)
-        raw_scores, raw_boxes, raw_attributes = self.head(features)
+        raw_scores, raw_boxes = self.head(fpn_feats)
 

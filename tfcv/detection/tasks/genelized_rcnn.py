@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from tfcv.ops import preprocess_ops
+from tfcv.datasets.coco.decoder import COCOExampleDecoder
 
 from tfcv.utils.amp import fp16_to_fp32_nested
 from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
@@ -65,7 +66,7 @@ class GenelizedRCNNTask(DetectionTask):
             detections['source_ids'] = inputs['source_ids']
         return detections
     
-    def preprocess(self, image):
+    def inference_preprocess(self, image):
         image = tf.image.convert_image_dtype(image, dtype=tf.float32)
         image = preprocess_ops.normalize_image(image, self._params.data.pixel_std, self._params.data.pixel_mean)
         
@@ -77,5 +78,39 @@ class GenelizedRCNNTask(DetectionTask):
             masks=None
         )
         return {'images': image, 'image_info': image_info}
+    
+    def train_preprocess(self, data, need_decode=True):
+        if need_decode:
+            decoder = COCOExampleDecoder(
+                use_instance_mask=self._params.include_mask,
+                include_source_id=False)
+            with tf.name_scope('decode'):
+                data = decoder.decode(data)
+
+        boxes = data['groundtruth_boxes']
+        if self._params.include_mask:
+            instance_masks = data['groundtruth_instance_masks']
+        classes = data['groundtruth_classes']
+        classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
+
+        if not self._params.data.use_category:
+            classes = tf.cast(tf.greater(classes, 0), dtype=tf.float32)
+        
+        if self._params.data.skip_crowd_during_training:
+            with tf.name_scope('remove_crowded'):
+                indices = tf.where(tf.logical_not(data['groundtruth_is_crowd']))
+                classes = tf.gather_nd(classes, indices)
+                boxes = tf.gather_nd(boxes, indices)
+
+                if self._params.include_mask:
+                    instance_masks = tf.gather_nd(instance_masks, indices)
+        
+        if self._params.data.augment_input:
+            do_a_flip_random = tf.greater(tf.random.uniform([], seed=self._params.seed), 0.5)
+            
+        
+
+    def validate_preprocess(self, data):
+        pass
 
         

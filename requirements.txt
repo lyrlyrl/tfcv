@@ -2,6 +2,6 @@ tensorflow>=2.7.0
 tensorflow-addons
 pycocotools
 tensorflow-model-optimization
-dataclasses
+dataclasses;python_version<"3.7"
 pyyaml
 tqdm

@@ -6,9 +6,9 @@ def _get_source_id_from_encoded_image(parsed_tensors):
 class COCOExampleDecoder:
     """Tensorflow Example proto decoder."""
 
-    def __init__(self, use_instance_mask=False, regenerate_source_id=False):
+    def __init__(self, use_instance_mask=False, include_source_id=False):
         self._include_mask = use_instance_mask
-        self._regenerate_source_id = regenerate_source_id
+        self._include_source_id = include_source_id
         self._keys_to_features = {
             'image/encoded': tf.io.FixedLenFeature((), tf.string),
             'image/source_id': tf.io.FixedLenFeature((), tf.string),
@@ -97,19 +97,8 @@ class COCOExampleDecoder:
         if self._include_mask:
             masks = self._decode_masks(parsed_tensors)
 
-        if self._regenerate_source_id:
-            source_id = _get_source_id_from_encoded_image(parsed_tensors)
-
-        else:
-            source_id = tf.cond(
-                pred=tf.greater(tf.strings.length(input=parsed_tensors['image/source_id']), 0),
-                true_fn=lambda: parsed_tensors['image/source_id'],
-                false_fn=lambda: _get_source_id_from_encoded_image(parsed_tensors)
-            )
-
         decoded_tensors = {
             'image': image,
-            'source_id': source_id,
             'height': parsed_tensors['image/height'],
             'width': parsed_tensors['image/width'],
             'classes': parsed_tensors['image/object/class/label'],
@@ -117,6 +106,13 @@ class COCOExampleDecoder:
             'area': parsed_tensors['image/object/area'],
             'boxes': boxes,
         }
+        if self._include_source_id:
+            source_id = tf.cond(
+                pred=tf.greater(tf.strings.length(input=parsed_tensors['image/source_id']), 0),
+                true_fn=lambda: parsed_tensors['image/source_id'],
+                false_fn=lambda: _get_source_id_from_encoded_image(parsed_tensors)
+            )
+            decoded_tensors['source_id'] = source_id
 
         if self._include_mask:
             decoded_tensors.update({
