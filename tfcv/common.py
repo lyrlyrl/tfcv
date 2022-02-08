@@ -48,3 +48,17 @@ def autocast(data):
     elif isinstance(data, tf.Tensor):
         data = data.numpy().tolist()
     return data
+
+def expand_image_shape(shape):
+    try:
+        shapes = list(shape)
+    except TypeError:
+        shape = int(shape)
+        shapes = [shape, shape]
+    assert len(shapes) == 2
+    if tf.keras.backend.image_data_format() == 'channels_last':
+        shapes = shapes + [3]
+    else:
+        shapes = [3] + shapes
+    return shapes
+    

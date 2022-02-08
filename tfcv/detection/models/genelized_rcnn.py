@@ -3,6 +3,7 @@ import tensorflow as tf
 from tfcv.classification.models.resnet import ResNet
 
 from tfcv.ops import anchors
+from tfcv.common import expand_image_shape
 from tfcv.detection.models.fpn import FPN
 from tfcv.detection.models.heads import RPNHead, BoxHead, MaskHead
 from tfcv.ops import roi_ops, spatial_transform_ops, postprocess_ops, training_ops
@@ -14,7 +15,7 @@ class GenelizedRCNN(tf.keras.Model):
         self.cfg = config
         self.backbone = ResNet(
             self.cfg.backbone.resnet_id,
-            input_shape=[832, 1344, 3],
+            input_shape=expand_image_shape(self.cfg.data.image_size),
             freeze_at=0 if self.cfg.from_scratch else 2,
             freeze_bn=False if self.cfg.from_scratch else True,
             include_top=False,
