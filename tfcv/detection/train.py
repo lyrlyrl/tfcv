@@ -11,7 +11,7 @@ from tfcv import logger
 from tfcv.distribute import MPI_is_distributed, MPI_local_rank, MPI_size
 from tfcv.exception import NanTrainLoss
 from tfcv.hooks import LoggerHook, CheckpointAndBroadcastHook
-from tfcv import HorovodTrainer
+from tfcv import HorovodTrainer, DefaultTrainer
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.detection.tasks.genelized_rcnn import GenelizedRCNNTask
@@ -54,14 +54,17 @@ def train(epochs):
     cfg.global_train_batch_size = cfg.train_batch_size * MPI_size()
     cfg.freeze()
     
+    task = create_task(cfg)
+
     dataset = Dataset()
-    train_data = dataset.train_fn(cfg.train_batch_size)
+
+    train_data = dataset.train_fn(task.train_preprocess, cfg.train_batch_size)
 
     total_steps = math.ceil(epochs * dataset.train_size / cfg.global_train_batch_size)
 
     global_step = tfcv.create_global_step()
     optimizer = create_optimizer(cfg, global_step, dataset.train_size)
-    task = create_task(cfg)
+    
     model = task.create_model()
     
     checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer, global_step=global_step)
@@ -75,7 +78,8 @@ def train(epochs):
             cfg.solver.checkpoint_interval
         )
     ]
-    trainer = HorovodTrainer(
+    trainer_cls = HorovodTrainer if MPI_is_distributed() else DefaultTrainer
+    trainer = trainer_cls(
         cfg,
         global_step,
         model, 

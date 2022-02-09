@@ -160,8 +160,109 @@ class Anchors:
                 tf.gather(labels, indices), [feat_size0, feat_size1, -1])
         return labels_unpacked
 
+class AnchorLabeler(object):
+  """Labeler for dense object detector."""
 
-class AnchorLabeler:
+  def __init__(self,
+               match_threshold=0.5,
+               unmatched_threshold=0.5):
+    """Constructs anchor labeler to assign labels to anchors.
+
+    Args:
+      match_threshold: a float number between 0 and 1 representing the
+        lower-bound threshold to assign positive labels for anchors. An anchor
+        with a score over the threshold is labeled positive.
+      unmatched_threshold: a float number between 0 and 1 representing the
+        upper-bound threshold to assign negative labels for anchors. An anchor
+        with a score below the threshold is labeled negative.
+    """
+    self.similarity_calc = region_similarity_calculator.IouSimilarity()
+    self.target_gather = target_gather.TargetGather()
+    self.matcher = argmax_matcher.ArgMaxMatcher(
+        thresholds=[unmatched_threshold, match_threshold],
+        indicators=[-1, -2, 1],
+        force_match_for_each_col=True)
+    self.box_coder = faster_rcnn_box_coder.FasterRcnnBoxCoder()
+
+  def label_anchors(self,
+                    anchor_boxes,
+                    gt_boxes,
+                    gt_labels,
+                    gt_attributes=None):
+    """Labels anchors with ground truth inputs.
+
+    Args:
+      anchor_boxes: A float tensor with shape [N, 4] representing anchor boxes.
+        For each row, it stores [y0, x0, y1, x1] for four corners of a box.
+      gt_boxes: A float tensor with shape [N, 4] representing groundtruth boxes.
+        For each row, it stores [y0, x0, y1, x1] for four corners of a box.
+      gt_labels: A integer tensor with shape [N, 1] representing groundtruth
+        classes.
+      gt_attributes: If not None, a dict of (name, gt_attribute) pairs.
+        `gt_attribute` is a float tensor with shape [N, attribute_size]
+        representing groundtruth attributes.
+    Returns:
+      cls_targets_dict: ordered dictionary with keys
+        [min_level, min_level+1, ..., max_level]. The values are tensor with
+        shape [height_l, width_l, num_anchors_per_location]. The height_l and
+        width_l represent the dimension of class logits at l-th level.
+      box_targets_dict: ordered dictionary with keys
+        [min_level, min_level+1, ..., max_level]. The values are tensor with
+        shape [height_l, width_l, num_anchors_per_location * 4]. The height_l
+        and width_l represent the dimension of bounding box regression output at
+        l-th level.
+      attribute_targets_dict: a dict with (name, attribute_targets) pairs. Each
+        `attribute_targets` represents an ordered dictionary with keys
+        [min_level, min_level+1, ..., max_level]. The values are tensor with
+        shape [height_l, width_l, num_anchors_per_location * attribute_size].
+        The height_l and width_l represent the dimension of attribute prediction
+        output at l-th level.
+      cls_weights: A flattened Tensor with shape [batch_size, num_anchors], that
+        serves as masking / sample weight for classification loss. Its value
+        is 1.0 for positive and negative matched anchors, and 0.0 for ignored
+        anchors.
+      box_weights: A flattened Tensor with shape [batch_size, num_anchors], that
+        serves as masking / sample weight for regression loss. Its value is
+        1.0 for positive matched anchors, and 0.0 for negative and ignored
+        anchors.
+    """
+    flattened_anchor_boxes = []
+    for anchors in anchor_boxes.values():
+      flattened_anchor_boxes.append(tf.reshape(anchors, [-1, 4]))
+    flattened_anchor_boxes = tf.concat(flattened_anchor_boxes, axis=0)
+    similarity_matrix = self.similarity_calc(flattened_anchor_boxes, gt_boxes)
+    match_indices, match_indicators = self.matcher(similarity_matrix)
+
+    mask = tf.less_equal(match_indicators, 0)
+    cls_mask = tf.expand_dims(mask, -1)
+    cls_targets = self.target_gather(gt_labels, match_indices, cls_mask, -1)
+    box_mask = tf.tile(cls_mask, [1, 4])
+    box_targets = self.target_gather(gt_boxes, match_indices, box_mask)
+    att_targets = {}
+    if gt_attributes:
+      for k, v in gt_attributes.items():
+        att_size = v.get_shape().as_list()[-1]
+        att_mask = tf.tile(cls_mask, [1, att_size])
+        att_targets[k] = self.target_gather(v, match_indices, att_mask, 0.0)
+
+    weights = tf.squeeze(tf.ones_like(gt_labels, dtype=tf.float32), -1)
+    box_weights = self.target_gather(weights, match_indices, mask)
+    ignore_mask = tf.equal(match_indicators, -2)
+    cls_weights = self.target_gather(weights, match_indices, ignore_mask)
+    box_targets_list = box_list.BoxList(box_targets)
+    anchor_box_list = box_list.BoxList(flattened_anchor_boxes)
+    box_targets = self.box_coder.encode(box_targets_list, anchor_box_list)
+
+    # Unpacks labels into multi-level representations.
+    cls_targets_dict = unpack_targets(cls_targets, anchor_boxes)
+    box_targets_dict = unpack_targets(box_targets, anchor_boxes)
+    attribute_targets_dict = {}
+    for k, v in att_targets.items():
+      attribute_targets_dict[k] = unpack_targets(v, anchor_boxes)
+
+    return cls_targets_dict, box_targets_dict, attribute_targets_dict, cls_weights, box_weights
+
+class RpnAnchorLabeler:
     """Labeler for multiscale anchor boxes."""
 
     def __init__(self, anchors, num_classes, match_threshold=0.7,

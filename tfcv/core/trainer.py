@@ -13,13 +13,13 @@ from tfcv.exception import NanTrainLoss, ManuallyInterrupt
 
 hvd = LazyImport('horovod.tensorflow')
 
-__all__ = ['HorovodTrainer']
+__all__ = ['HorovodTrainer', 'DefaultTrainer']
 
 class Fatal:
     NAN_LOSS = 'train loss nan'
     DATA_EXAUSTED = 'not enough data'
 
-class Trainer(tf.Module, metaclass=abc.ABCMeta):
+class DefaultTrainer(tf.Module):
     def __init__(
             self, 
             params,
@@ -29,7 +29,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             optimizer=None,
             metrics=[],
             hooks: List[Hook] = []):
-        super(Trainer, self).__init__(name='trainer')
+        super(DefaultTrainer, self).__init__(name='trainer')
         self._params = params
         self._global_step = global_step
         self._model = model
@@ -115,9 +115,28 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
             self.hooks.after_run()
             return code
 
-    @abc.abstractmethod
     def compile(self):
-        pass
+        self._train_op = tf.function(self.train_step)
+
+    def train_step(self, inputs):
+        with tf.GradientTape() as tape:
+            raw_loss, to_update, to_output = self._task.train_forward(self._model, inputs)
+            if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+                loss = self._optimizer.get_scaled_loss(raw_loss)
+            else:
+                loss = raw_loss
+
+        trainable_weights = self._model.trainable_weights
+        grads = tape.gradient(loss, trainable_weights)
+        if isinstance(self._optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+            grads = self._optimizer.get_unscaled_gradients(grads)
+        self._optimizer.apply_gradients(list(zip(grads, trainable_weights)))
+        # update
+        self._train_loss.update_state(raw_loss)
+        for metric in self._metrics:
+            metric.update_state(to_update[metric.name])
+        self._global_step.assign_add(1)
+        return to_output
 
     def train_loop_begin(self):
         self._train_loss.reset_state()
@@ -141,7 +160,7 @@ class Trainer(tf.Module, metaclass=abc.ABCMeta):
 
         return throuput, train_loss, metrics
 
-class HorovodTrainer(Trainer):
+class HorovodTrainer(DefaultTrainer):
     
     def __init__(self, *args, **kwargs):
         super(HorovodTrainer, self).__init__(*args, **kwargs)

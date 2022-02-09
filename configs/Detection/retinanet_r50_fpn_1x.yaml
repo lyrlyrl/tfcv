@@ -1,0 +1,5 @@
+_base: '_base.yaml'
+# model
+meta_arch: 'retinanet'
+max_level: 6
+min_level: 2

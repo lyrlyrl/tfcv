@@ -101,10 +101,10 @@ class COCOExampleDecoder:
             'image': image,
             'height': parsed_tensors['image/height'],
             'width': parsed_tensors['image/width'],
-            'classes': parsed_tensors['image/object/class/label'],
-            'is_crowd': is_crowd,
-            'area': parsed_tensors['image/object/area'],
-            'boxes': boxes,
+            'groundtruth_classes': parsed_tensors['image/object/class/label'],
+            'groundtruth_is_crowd': is_crowd,
+            'groundtruth_area': parsed_tensors['image/object/area'],
+            'groundtruth_boxes': boxes,
         }
         if self._include_source_id:
             source_id = tf.cond(
@@ -116,7 +116,7 @@ class COCOExampleDecoder:
 
         if self._include_mask:
             decoded_tensors.update({
-                'masks': masks,
+                'groundtruth_instance_masks': masks,
                 # 'mask_png_bytes': parsed_tensors['image/object/mask'],
             })
 

@@ -46,7 +46,7 @@ class Dataset:
 
         self._logger = logging.getLogger('dataset')
 
-    def train_fn(self, batch_size):
+    def train_fn(self, parser, batch_size):
         """ Input function for training. """
         data = tf.data.TFRecordDataset(self._train_files)
         if MPI_is_distributed():
@@ -56,17 +56,20 @@ class Dataset:
         data = data.shuffle(buffer_size=4096, reshuffle_each_iteration=True, seed=cfg.seed)
         data = data.repeat()
 
+        # data = data.map(
+        #     lambda x: dataset_parser(
+        #         value=x,
+        #         mode='train',
+        #         params=cfg,
+        #         use_instance_mask=cfg.include_mask,
+        #         seed=cfg.seed
+        #     ),
+        #     num_parallel_calls=tf.data.experimental.AUTOTUNE
+        # )
         data = data.map(
-            lambda x: dataset_parser(
-                value=x,
-                mode='train',
-                params=cfg,
-                use_instance_mask=cfg.include_mask,
-                seed=cfg.seed
-            ),
+            parser,
             num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
-
         data = data.batch(batch_size=batch_size, drop_remainder=True)
 
         if cfg.use_synthetic_data:
