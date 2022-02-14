@@ -134,7 +134,7 @@ class DefaultTrainer(tf.Module):
         # update
         self._train_loss.update_state(raw_loss)
         for metric in self._metrics:
-            metric.update_state(to_update[metric.name])
+            metric.update_state(*to_update[metric.name])
         self._global_step.assign_add(1)
         return to_output
 
@@ -188,6 +188,6 @@ class HorovodTrainer(DefaultTrainer):
         # update
         self._train_loss.update_state(raw_loss)
         for metric in self._metrics:
-            metric.update_state(to_update[metric.name])
+            metric.update_state(*to_update[metric.name])
         self._global_step.assign_add(1)
         return to_output

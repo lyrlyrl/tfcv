@@ -343,10 +343,11 @@ class ResNet(tf.keras.Model):
         norm_momentum=0.9,
         norm_epsilon=1e-05,
         activation='relu',
-        kernel_initializer=tf.keras.initializers.VarianceScaling(
+        conv_kernel_initializer=tf.keras.initializers.VarianceScaling(
             scale=2.0, distribution='truncated_normal'),
+        dense_kernel_initializer=tf.keras.initializers.RandomNormal(stddev=0.01),
         include_top=True,
-        num_classes=1001,
+        num_classes=1000,
         pretrained: str = 'imagenet',
         **kwargs):
         """ResNet initialization function.
@@ -362,7 +363,8 @@ class ResNet(tf.keras.Model):
             **kwargs: keyword arguments to be passed.
         """
         self._model_id = model_id
-        self._kernel_initializer = kernel_initializer
+        self._conv_kernel_initializer = conv_kernel_initializer
+        self._dense_kernel_initializer = dense_kernel_initializer
         # self._activation = get_activation(use_keras_layer=True)
 
             # Build ResNet.
@@ -374,7 +376,7 @@ class ResNet(tf.keras.Model):
             filters=64,
             kernel_size=7,
             strides=2,
-            kernel_initializer=kernel_initializer,
+            kernel_initializer=conv_kernel_initializer,
             padding='same',
             freeze_bn=freeze_bn,
             norm_momentum=norm_momentum,
@@ -385,14 +387,14 @@ class ResNet(tf.keras.Model):
         )(inputs)
 
         x = layers.MaxPool2D(pool_size=3, strides=2, padding='same')(x)
-
-        endpoints = {}
+        if not include_top:
+            endpoints = {}
         for i, spec in enumerate(RESNET_SPECS[model_id]):
             x = block_group(
                     x,
                     filters=spec[1],
                     strides=(1 if i == 0 else 2),
-                    kernel_initializer=kernel_initializer,
+                    kernel_initializer=conv_kernel_initializer,
                     freeze_bn=freeze_bn,
                     norm_momentum=norm_momentum,
                     norm_epsilon=norm_epsilon,
@@ -401,31 +403,21 @@ class ResNet(tf.keras.Model):
                     block_repeats=spec[2],
                     trainable=(freeze_at-2 < i),
                     name=f'resnet{model_id}/group{i}')
-            endpoints[str(i + 2)] = x
+            if not include_top:
+                endpoints[str(i + 2)] = x
 
         if include_top:
-            # x = endpoints[str(i + 2)]
             x = tf.keras.layers.GlobalAveragePooling2D()(x)
-            x = tf.keras.layers.Dense(num_classes, kernel_initializer=kernel_initializer)(x)
+            x = tf.keras.layers.Dense(num_classes, kernel_initializer=dense_kernel_initializer)(x)
 
             super(ResNet, self).__init__(inputs=inputs, outputs=x, name=f'resnet{model_id}', **kwargs)
             if pretrained:
-                assert num_classes==1001, 'imagenet pretrained classification model must be 1001 classes'
+                assert num_classes==1000, 'imagenet pretrained classification model must be 1000 classes'
                 self.load(RESNET_PRETRAINED[model_id][pretrained])
         else:
             super(ResNet, self).__init__(inputs=inputs, outputs=endpoints, name=f'resnet{model_id}', **kwargs)
             if pretrained:
                 load_npz(self, RESNET_PRETRAINED[model_id][pretrained])
-    def get_config(self):
-        config_dict = {
-                'model_id': self._model_id,
-                'kernel_initializer': self._kernel_initializer,
-        }
-        return config_dict
-
-    @classmethod
-    def from_config(cls, config, custom_objects=None):
-        return cls(**config)
 
     @staticmethod
     def freeze_at(stage, model_id):

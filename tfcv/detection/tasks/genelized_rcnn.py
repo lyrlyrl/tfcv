@@ -7,6 +7,7 @@ from tfcv.utils.amp import fp16_to_fp32_nested
 from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
 from tfcv.ops.losses.fast_rcnn_loss import FastRCNNLoss
 from tfcv.ops.losses.rpn_loss import RPNLoss
+from tfcv.losses import huber_loss, softmax_crossentropy, sigmoid_crossentropy
 from tfcv.detection.tasks.base import DetectionTask
 
 class GenelizedRCNNTask(DetectionTask):
@@ -33,17 +34,13 @@ class GenelizedRCNNTask(DetectionTask):
 
     def _build_loss(self, model_outputs, inputs):
         if self._params.include_mask:
-            mask_rcnn_loss = MaskRCNNLoss()(model_outputs, inputs)
+            mask_rcnn_loss = self._build_mrcnn_loss(model_outputs)
             mask_rcnn_loss *= self._params.loss.mask_weight
 
-        fast_rcnn_class_loss, fast_rcnn_box_loss = FastRCNNLoss(self._params.num_classes)(model_outputs, inputs)
+        fast_rcnn_class_loss, fast_rcnn_box_loss = self._build_frcnn_loss(model_outputs, inputs)
         fast_rcnn_box_loss *= self._params.loss.fast_rcnn_box_weight
 
-        rpn_score_loss, rpn_box_loss = RPNLoss(
-            batch_size=self._params.train_batch_size,
-            rpn_batch_size_per_im=self._params.rpn.batch_size_per_im,
-            min_level=self._params.min_level,
-            max_level=self._params.max_level)(model_outputs, inputs)
+        rpn_score_loss, rpn_box_loss = self._build_rpn_loss(model_outputs, inputs)
         rpn_box_loss *= self._params.loss.rpn_box_weight
 
         losses = {
@@ -55,7 +52,129 @@ class GenelizedRCNNTask(DetectionTask):
         if self._params.include_mask:
             losses['mask_rcnn_loss'] = mask_rcnn_loss
         return losses
+    
+    def _build_rpn_loss(self, model_outputs, inputs):
+        score_outputs = model_outputs['rpn_score_outputs']
+        box_outputs = model_outputs['rpn_box_outputs']
+
+        score_losses = []
+        box_losses = []
+
+        score_normalizer = tf.cast(self._params.train_batch_size * self._params.rpn.batch_size_per_im, dtype=tf.float32)
+
+        for level in range(int(self._params.min_level), int(self._params.max_level + 1)):
+
+            score_targets_at_level = inputs['score_targets_%d' % level]
+            score_outputs_at_level = score_outputs[str(level)]
+            box_targets_at_level = inputs['box_targets_%d' % level]
+            box_outputs_at_level = box_outputs[str(level)]
+
+            with tf.name_scope('rpn_score_loss_level%d'.format(level)):
+                mask = tf.math.greater_equal(score_targets_at_level, 0)
+                mask = tf.cast(mask, dtype=tf.float32)
+
+                score_targets_at_level = tf.maximum(score_targets_at_level, tf.zeros_like(score_targets_at_level))
+                score_targets_at_level = tf.cast(score_targets_at_level, dtype=tf.float32)
+
+                assert score_outputs_at_level.dtype == tf.float32
+                assert score_targets_at_level.dtype == tf.float32
+
+                score_loss = sigmoid_crossentropy(
+                    multi_class_labels=score_targets_at_level,
+                    logits=score_outputs_at_level,
+                    weights=mask,
+                    sum_by_non_zeros_weights=False
+                )
+
+                assert score_loss.dtype == tf.float32
+
+                score_loss /= score_normalizer
+
+                assert score_loss.dtype == tf.float32
+            score_losses.append(score_loss)
+
+            with tf.name_scope('rpn_box_loss_level%d'.format(level)):
+                mask = tf.not_equal(box_targets_at_level, 0.0)
+                mask = tf.cast(mask, tf.float32)
+
+                assert mask.dtype == tf.float32
+
+                # The loss is normalized by the sum of non-zero weights before additional
+                # normalizer provided by the function caller.
+                box_loss = huber_loss(y_true=box_targets_at_level, y_pred=box_outputs_at_level, weights=mask, delta=1.0)
+
+                assert box_loss.dtype == tf.float32
+
+            box_losses.append(box_loss)
+
+        # Sum per level losses to total loss.
+        rpn_score_loss = tf.add_n(score_losses)
+        rpn_box_loss = tf.add_n(box_losses)
+
+        return rpn_score_loss, rpn_box_loss
+    
+    def _build_frcnn_loss(self, model_outputs, inputs):
+        class_outputs = model_outputs['class_outputs']
+        box_outputs = model_outputs['box_outputs']
+        class_targets = model_outputs['class_targets']
+        box_targets = model_outputs['box_targets']
+
+        class_targets = tf.cast(class_targets, dtype=tf.int32)
+
+        # Selects the box from `box_outputs` based on `class_targets`, with which
+        # the box has the maximum overlap.
+        batch_size, num_rois, _ = box_outputs.get_shape().as_list()
+        box_outputs = tf.reshape(box_outputs, [batch_size, num_rois, self._num_classes, 4])
+
+        box_indices = tf.reshape(
+            class_targets +
+            tf.tile(tf.expand_dims(tf.range(batch_size) * num_rois * self._num_classes, 1), [1, num_rois]) +
+            tf.tile(tf.expand_dims(tf.range(num_rois) * self._num_classes, 0), [batch_size, 1]),
+            [-1]
+        )
+
+        box_outputs = tf.matmul(
+            tf.one_hot(
+                box_indices,
+                batch_size * num_rois * self._num_classes,
+                dtype=box_outputs.dtype
+            ),
+            tf.reshape(box_outputs, [-1, 4])
+        )
+
+        box_outputs = tf.reshape(box_outputs, [batch_size, -1, 4])
+        with tf.name_scope('fast_rcnn_box_loss'):
+            mask = tf.tile(tf.expand_dims(tf.greater(class_targets, 0), axis=2), [1, 1, 4])
+            # The loss is normalized by the sum of non-zero weights before additional
+            # normalizer provided by the function caller.
+            box_loss = huber_loss(y_true=box_targets, y_pred=box_outputs, weights=mask, delta=1.0)
         
+        with tf.name_scope('fast_rcnn_class_loss'):
+            class_targets_one_hot = tf.one_hot(class_targets, self._params.num_classes)
+            class_loss = softmax_crossentropy(onehot_labels=class_targets_one_hot, logits=class_outputs)
+
+        return class_loss, box_loss
+    
+    def _build_mrcnn_loss(self, model_outputs):
+        mask_outputs = model_outputs['mask_outputs']
+        mask_targets = model_outputs['mask_targets']
+        select_class_targets = model_outputs['selected_class_targets']
+
+        batch_size, num_masks, mask_height, mask_width = mask_outputs.get_shape().as_list()
+
+        weights = tf.tile(
+            tf.reshape(tf.greater(select_class_targets, 0), [batch_size, num_masks, 1, 1]),
+            [1, 1, mask_height, mask_width]
+        )
+        weights = tf.cast(weights, tf.float32)
+
+        return sigmoid_crossentropy(
+            multi_class_labels=mask_targets,
+            logits=mask_outputs,
+            weights=weights,
+            sum_by_non_zeros_weights=True
+        )
+    
     def inference_forward(self, model, inputs):
         detections = model.call(
             images=inputs['images'],
@@ -186,7 +305,6 @@ class GenelizedRCNNTask(DetectionTask):
         
         return features
         
-
     def evaluate_preprocess(self, data, need_decode=True):
         if need_decode:
             decoder = COCOExampleDecoder(
