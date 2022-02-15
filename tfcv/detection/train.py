@@ -12,7 +12,7 @@ from tfcv.exception import NanTrainLoss
 from tfcv.hooks import LoggerHook, CheckpointAndBroadcastHook
 from tfcv import HorovodTrainer, DefaultTrainer
 from tfcv.config import update_cfg, config as cfg
-from tfcv.datasets.coco.dataset import Dataset
+from tfcv.detection.dataset import TFDataset
 from tfcv.detection.tasks.genelized_rcnn import GenelizedRCNNTask
 from tfcv.schedules.learning_rate import PiecewiseConstantWithWarmupSchedule
 
@@ -55,7 +55,7 @@ def train(epochs):
     
     task = create_task(cfg)
 
-    dataset = Dataset()
+    dataset = TFDataset(cfg)
 
     train_data = dataset.train_fn(task.train_preprocess, cfg.train_batch_size)
 
@@ -94,6 +94,10 @@ def train(epochs):
 def create_task(config):
     if config.meta_arch == 'genelized_rcnn':
         task = GenelizedRCNNTask(config)
+    elif config.meta_arch == 'efficientdet':
+        pass
+    elif config.meta_arch == 'retinanet':
+        pass
     else:
         raise
     return task

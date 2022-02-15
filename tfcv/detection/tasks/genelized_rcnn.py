@@ -4,10 +4,9 @@ from tfcv.ops import preprocess_ops, anchors
 from tfcv.datasets.coco.decoder import COCOExampleDecoder
 
 from tfcv.utils.amp import fp16_to_fp32_nested
-from tfcv.ops.losses.mask_rcnn_loss import MaskRCNNLoss
-from tfcv.ops.losses.fast_rcnn_loss import FastRCNNLoss
-from tfcv.ops.losses.rpn_loss import RPNLoss
+
 from tfcv.losses import huber_loss, softmax_crossentropy, sigmoid_crossentropy
+from tfcv.detection.dataset import TFDataset
 from tfcv.detection.tasks.base import DetectionTask
 
 class GenelizedRCNNTask(DetectionTask):
@@ -342,3 +341,4 @@ class GenelizedRCNNTask(DetectionTask):
         }
 
         return features
+    
