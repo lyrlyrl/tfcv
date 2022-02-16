@@ -10,10 +10,8 @@ def sigmoid_crossentropy(multi_class_labels, logits, weights, sum_by_non_zeros_w
         name="x-entropy"
     )
 
-    assert sigmoid_cross_entropy.dtype == tf.float32
-
     sigmoid_cross_entropy = tf.math.multiply(sigmoid_cross_entropy, weights)
-    sigmoid_cross_entropy = tf.math.reduce_sum(input_tensor=sigmoid_cross_entropy)
+    sigmoid_cross_entropy = tf.math.reduce_sum(sigmoid_cross_entropy)
 
     assert sigmoid_cross_entropy.dtype == tf.float32
 
@@ -40,7 +38,7 @@ def softmax_crossentropy(onehot_labels, logits):
 
     assert softmax_cross_entropy.dtype == tf.float32
 
-    softmax_cross_entropy = tf.math.reduce_sum(input_tensor=softmax_cross_entropy)
+    softmax_cross_entropy = tf.math.reduce_sum(softmax_cross_entropy)
     softmax_cross_entropy = tf.math.divide_no_nan(
         softmax_cross_entropy,
         num_non_zeros,
@@ -49,3 +47,8 @@ def softmax_crossentropy(onehot_labels, logits):
 
     assert softmax_cross_entropy.dtype == tf.float32
     return softmax_cross_entropy
+
+def categorical_crossentropy(y_true, y_pred, label_smoothing=0):
+    y_pred = tf.convert_to_tensor(y_pred)
+    y_true = tf.cast(y_true, y_pred.dtype)
+    label_smoothing = tf.convert_to_tensor(label_smoothing, y_pred.dtype)
