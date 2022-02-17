@@ -9,7 +9,7 @@ from tf2onnx import tfonnx, optimizer, tf_loader
 
 from tfcv import Predictor
 from tfcv.config import update_cfg, config as cfg
-from tfcv.detection.train import setup, create_task
+from runtime.train import setup, create_task
 
 PARSER = argparse.ArgumentParser(
     description='custom implementation of object detection models for TensorFlow 2.x',

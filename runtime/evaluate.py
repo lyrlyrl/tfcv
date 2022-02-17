@@ -12,7 +12,7 @@ from tfcv import Predictor
 from tfcv.config import update_cfg, config as cfg
 from tfcv.datasets.coco.dataset import Dataset
 from tfcv.evaluate.metric import COCOEvaluationMetric, process_predictions
-from tfcv.detection.train import create_task, setup
+from runtime.train import create_task, setup
 
 PARSER = argparse.ArgumentParser(
     description='as child process'

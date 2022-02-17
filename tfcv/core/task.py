@@ -19,3 +19,7 @@ class Task(object, metaclass = abc.ABCMeta):
         return image
     def postprocess(self, predictions):
         return predictions
+    def add_train_metrics(self):
+        pass
+    def add_eval_metrics(self):
+        pass
