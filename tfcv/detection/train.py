@@ -2,13 +2,13 @@ import argparse
 import os
 import math
 import sys
+import yaml
 
 import tensorflow as tf
 
 import tfcv
 from tfcv import logger
 from tfcv.distribute import MPI_is_distributed, MPI_local_rank, MPI_size
-from tfcv.exception import NanTrainLoss
 from tfcv.hooks import LoggerHook, CheckpointAndBroadcastHook
 from tfcv import HorovodTrainer, DefaultTrainer
 from tfcv.config import update_cfg, config as cfg
@@ -33,9 +33,9 @@ PARSER.add_argument(
     required=True
 )
 PARSER.add_argument(
-    '--epochs',
-    type=int,
-    required=True
+    '--config_override',
+    help='A list of KEY=VALUE to overwrite those defined in config.yaml',
+    nargs='+'
 )
 
 def setup(config):
@@ -49,7 +49,7 @@ def setup(config):
     tfcv.set_xla(config)
     tfcv.set_amp(config)
 
-def train(epochs):
+def train():
     cfg.global_train_batch_size = cfg.train_batch_size * MPI_size()
     cfg.freeze()
     
@@ -59,7 +59,7 @@ def train(epochs):
 
     train_data = dataset.train_fn(task.train_preprocess, cfg.train_batch_size)
 
-    total_steps = math.ceil(epochs * dataset.train_size / cfg.global_train_batch_size)
+    total_steps = math.ceil(cfg.solver.epochs * dataset.train_size / cfg.global_train_batch_size)
 
     global_step = tfcv.create_global_step()
     optimizer = create_optimizer(cfg, global_step, dataset.train_size)
@@ -87,9 +87,8 @@ def train(epochs):
         metrics, 
         hooks
     )
-    trainer.compile()
-    return_code = trainer.train(total_steps, iter(train_data))
-    sys.exit(return_code)
+    trainer.train(total_steps, iter(train_data))
+
         
 def create_task(config):
     if config.meta_arch == 'genelized_rcnn':
@@ -144,11 +143,14 @@ def create_optimizer(config, global_step, train_size):
 if __name__ == '__main__':
     arguments = PARSER.parse_args()
 
-    workspace = arguments.workspace
+    workspace = os.path.abspath(arguments.workspace)
     if not os.path.isdir(workspace):
         os.makedirs(workspace)
     params = update_cfg(arguments.config_file)
     cfg.from_dict(params)
+    config_path = os.path.join(workspace, f'train_config.yaml')
+    with open(config_path, 'w') as fp:
+        yaml.dump(cfg.to_dict(), fp, Dumper=yaml.CDumper)
     cfg.workspace = workspace
 
     setup(cfg)
@@ -159,4 +161,4 @@ if __name__ == '__main__':
 
     logger.init(backends)
 
-    train(arguments.epochs)
+    train()

@@ -69,8 +69,7 @@ class DefaultTrainer(tf.Module):
 
     def train(self, num_steps, train_iterator):
         try:
-            if not self._train_op:
-                raise 
+            self.compile()
             # warm step
             self._train_op(next(train_iterator))
             self.hooks.before_train()
@@ -115,8 +114,9 @@ class DefaultTrainer(tf.Module):
             self.hooks.after_run()
             return code
 
-    def compile(self):
-        self._train_op = tf.function(self.train_step)
+    def compile(self, force=False):
+        if force or self._train_op == None:
+            self._train_op = tf.function(self.train_step)
 
     def train_step(self, inputs):
         with tf.GradientTape() as tape:
@@ -166,9 +166,6 @@ class HorovodTrainer(DefaultTrainer):
         super(HorovodTrainer, self).__init__(*args, **kwargs)
         assert MPI_is_distributed()
         assert hvd.is_initialized()
-    
-    def compile(self):
-        self._train_op = tf.function(self.train_step)
     
     def train_step(self, inputs):
         with tf.GradientTape() as tape:

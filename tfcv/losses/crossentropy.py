@@ -48,16 +48,6 @@ def softmax_crossentropy(onehot_labels, logits):
     assert softmax_cross_entropy.dtype == tf.float32
     return softmax_cross_entropy
 
-def categorical_crossentropy(y_true, y_pred, label_smoothing=0):
-    y_pred = tf.convert_to_tensor(y_pred)
-    y_true = tf.cast(y_true, y_pred.dtype)
-    label_smoothing = tf.convert_to_tensor(label_smoothing, y_pred.dtype)
-
-    def _smooth_labels():
-        num_classes = tf.cast(tf.shape(y_true)[-1], y_pred.dtype)
-        return y_true * (1.0 - label_smoothing) + (label_smoothing / num_classes)
-
-    y_true = tf.cond(label_smoothing, _smooth_labels,
-                                    lambda: y_true)
     
+
     

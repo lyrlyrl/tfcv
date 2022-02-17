@@ -6,11 +6,8 @@ import tensorflow as tf
 import yaml
 import subprocess
 
-import tfcv
-
 from tfcv.config import update_cfg, setup_args, config as cfg
 from tfcv.utils.default_args import RUN_PARSER
-import signal
 
 if __name__ == '__main__':
     arguments = RUN_PARSER.parse_args()
