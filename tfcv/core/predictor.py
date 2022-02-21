@@ -2,7 +2,10 @@ from typing import List
 
 import tensorflow as tf
 
-__all__ = ['Predictor', 'merge_replica_results']
+from tfcv.utils.lazy_import import LazyImport
+hvd = LazyImport('horovod.tensorflow')
+
+__all__ = ['Predictor', 'merge_replica_results', 'HorovodPredictor']
 
 def merge_replica_results(strategy, inputs):
     dist_values = strategy.experimental_local_results(inputs)
@@ -35,3 +38,22 @@ class Predictor(tf.Module):
         inputs = self._task.preprocess(image)
         outputs = self._task.inference_forward(self._model, inputs)
         return self._task.postprocess(outputs)
+
+class HorovodPredictor(Predictor):
+    def __init__(self, *args, **kwargs):
+        super(HorovodPredictor, self).__init__(*args, **kwargs)
+        assert hvd.is_initialized()
+
+    @tf.function
+    def predict_step(self, inputs):
+        replica_outputs = self._task.inference_forward(self._model, inputs)
+        all_outputs = tf.nest.map_structure(hvd.allgather, replica_outputs)
+        return all_outputs
+
+    @tf.function
+    def service_step(self, image):
+        inputs = self._task.preprocess(image)
+        outputs = self._task.inference_forward(self._model, inputs)
+        replica_outputs = self._task.postprocess(outputs)
+        all_outputs = tf.nest.map_structure(hvd.allgather, replica_outputs)
+        return all_outputs

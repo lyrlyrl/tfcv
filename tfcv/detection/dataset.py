@@ -174,3 +174,5 @@ class TFDataset:
         data = data.batch(batch_size=batch_size, drop_remainder=True)
 
         data = data.prefetch(buffer_size=tf.data.AUTOTUNE)
+
+        return data

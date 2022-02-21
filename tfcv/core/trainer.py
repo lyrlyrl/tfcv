@@ -164,7 +164,6 @@ class HorovodTrainer(DefaultTrainer):
     
     def __init__(self, *args, **kwargs):
         super(HorovodTrainer, self).__init__(*args, **kwargs)
-        assert MPI_is_distributed()
         assert hvd.is_initialized()
     
     def train_step(self, inputs):
