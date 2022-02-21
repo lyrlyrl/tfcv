@@ -27,6 +27,11 @@ PARSER.add_argument(
     required=True
 )
 PARSER.add_argument(
+    '--config_path',
+    type=str,
+    required=True
+)
+PARSER.add_argument(
     '--run_id',
     type=int,
     required=True
@@ -146,7 +151,7 @@ if __name__ == '__main__':
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], 'GPU')
 
     model_dir = arguments.model_dir
-    config_path = os.path.join(model_dir, 'train_config.yaml')
+    config_path = arguments.config_path
     params = update_cfg(config_path)
     cfg.from_dict(params)
     cfg.model_dir = model_dir
